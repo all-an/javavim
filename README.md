@@ -1,8 +1,6 @@
 # javavim
 javavim
 
-![alt text](2024-08-26_17-00.png)
-
 <p align="center">
         <a href="https://www.linkedin.com/in/all-an/">
             <img align="center" width="344" height="342"  src="/2024-08-26_17-00.png" />
