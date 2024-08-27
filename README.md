@@ -1,4 +1,6 @@
-# javavim - terminal based vim like editor written in Java and some C++
+# javavim
+
+Terminal based vim like editor written in Java and some C++
 
 <p align="center">
         <a href="[https://www.linkedin.com/in/all-an/](https://www.linkedin.com/in/allan-pereira-abrahao/)">
