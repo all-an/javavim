@@ -6,8 +6,27 @@
         </a>
 </p>
 
-Javavim
-Project Goals:
+Requirements
+
+    JDK (Java Development Kit): Required for compiling and running Java code.
+    GCC (GNU Compiler Collection): Required for compiling C++ code.
+    JUnit and Hamcrest: Included in the lib/ directory for Java testing.
+
+Notes
+
+    The project uses custom test frameworks for both Java and C++.
+    The project is structured to support easy integration of additional features like a terminal-based interface, keybindings, and more.
+
+Project Goals
+
+As the project evolves, goals may include:
+
+    Implementing a terminal-based interface for the code editor.
+    Adding Vim-like keybindings.
+    Integrating Git functionality similar to Visual Studio Code's built-in features.
+    Expanding testing frameworks for both Java and C++.
+
+Project extra Goals:
 
     Learn JNI (Java Native Interface).
     Improve Java knowledge.
@@ -105,34 +124,5 @@ Javavim/
 ├── test_cpp.sh                    # Script to run the C++ tests
 └── README.md                      # Project documentation
 ```
-
-Project Goals
-
-The primary goals of the Javavim project are to:
-
-    Learn JNI (Java Native Interface).
-    Improve Java knowledge.
-    Learn C++.
-    Learn how to create a Java code editor in the terminal using Eclipse JDT.
-
-Requirements
-
-    JDK (Java Development Kit): Required for compiling and running Java code.
-    GCC (GNU Compiler Collection): Required for compiling C++ code.
-    JUnit and Hamcrest: Included in the lib/ directory for Java testing.
-
-Notes
-
-    The project uses custom test frameworks for both Java and C++.
-    The project is structured to support easy integration of additional features like a terminal-based interface, keybindings, and more.
-
-Future Goals
-
-As the project evolves, future goals may include:
-
-    Implementing a terminal-based interface for the code editor.
-    Adding Vim-like keybindings.
-    Integrating Git functionality similar to Visual Studio Code's built-in features.
-    Expanding testing frameworks for both Java and C++.
 
 This `README.md` provides a comprehensive overview of the **Javavim** project, including its structure, goals, and how to compile, run, and test the code. Let me know if you need any further updates or if there's anything else you'd like to add!
