@@ -1,4 +1,5 @@
 #!/bin/bash
+sudo rm -rf build
 
 # Set project directories
 JAVA_TEST_DIR="src/test/javatest"
