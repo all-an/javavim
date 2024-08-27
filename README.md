@@ -1,5 +1,11 @@
 # javavim
 
+<p align="center">
+        <a href="[https://www.linkedin.com/in/all-an/](https://www.linkedin.com/in/allan-pereira-abrahao/)">
+            <img align="center" width="344" height="342"  src="/2024-08-26_17-00.png" />
+        </a>
+</p>
+
 Javavim
 Project Goals:
 
@@ -130,9 +136,3 @@ As the project evolves, future goals may include:
     Expanding testing frameworks for both Java and C++.
 
 This `README.md` provides a comprehensive overview of the **Javavim** project, including its structure, goals, and how to compile, run, and test the code. Let me know if you need any further updates or if there's anything else you'd like to add!
-
-<p align="center">
-        <a href="[https://www.linkedin.com/in/all-an/](https://www.linkedin.com/in/allan-pereira-abrahao/)">
-            <img align="center" width="344" height="342"  src="/2024-08-26_17-00.png" />
-        </a>
-</p>
