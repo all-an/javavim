@@ -2,7 +2,7 @@
 
 <p align="center">
         <a href="[https://www.linkedin.com/in/all-an/](https://www.linkedin.com/in/allan-pereira-abrahao/)">
-            <img align="center" width="344" height="342"  src="/2024-08-26_17-00.png" />
+            <img align="center" width="344" height="342"  src="/javavim-logo.png" />
         </a>
 </p>
 
@@ -14,12 +14,10 @@ Requirements
 
 Notes
 
-    The project uses custom test frameworks for both Java and C++.
+    The project uses custom test framework for C++, and JUnit for Java.
     The project is structured to support easy integration of additional features like a terminal-based interface, keybindings, and more.
 
-Project Goals
-
-As the project evolves, goals may include:
+Project Goals:
 
     Implementing a terminal-based interface for the code editor.
     Adding Vim-like keybindings.
