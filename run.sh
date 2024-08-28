@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# Set project directories
-BUILD_DIR="build"
-LIB_DIR="lib"
-JAVA_SRC_DIR="src/java"
+# Create the cpp directory if it doesn't exist
+mkdir -p src/cpp
 
-# Compile the Java classes
-javac -g -d $BUILD_DIR -cp $LIB_DIR/jline-3.21.0.jar $JAVA_SRC_DIR/Javavim.java $JAVA_SRC_DIR/JavavimTextBuffer.java
+# Compile the Java code to generate the header file
+javac -h src/cpp src/java/Javavim.java
 
-# Compile the JNI C++ code (if applicable)
-g++ -shared -fPIC -o $BUILD_DIR/libjavavim.so -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" src/cpp/Javavim.cpp src/cpp/MessagePrinter.cpp
+# Compile the C++ code with JNI
+g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -shared -fPIC -o src/cpp/libjavavim.so src/cpp/main.cpp
 
-# Run the Java application
-java -Djava.library.path=$BUILD_DIR -cp $BUILD_DIR:$LIB_DIR/jline-3.21.0.jar Javavim
+# Compile the Java code
+javac -d . src/java/Javavim.java
+
+# Run the Java code
+java -Djava.library.path=src/cpp Javavim
