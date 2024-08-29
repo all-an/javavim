@@ -6,6 +6,7 @@ public class Javavim {
     public native void sayHello();
 
     public static void main(String[] args) {
-        new Javavim().sayHello();
+
+        new Javavim().sayHello(); //
     }
 }

@@ -1,17 +1,3 @@
-#!/bin/bash
-
-# Create the cpp directory if it doesn't exist
-mkdir -p src/cpp
-
-# Compile the Java code to generate the header file
-javac -h src/cpp src/java/Javavim.java
-
-# Compile the C++ code with JNI
-g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -shared -fPIC -o src/cpp/libjavavim.so src/cpp/main.cpp
-
-# Create the build directory if it doesn't exist
-mkdir -p build
-
 # Compile the Java code and place the classes in the build directory
 javac -d build -cp lib/junit-jupiter-api-5.8.2.jar:lib/junit-jupiter-engine-5.8.2.jar:lib/junit-platform-launcher-1.8.2.jar:lib/apiguardian-api-1.1.0.jar src/java/Javavim.java src/java/JavavimTest.java
 
