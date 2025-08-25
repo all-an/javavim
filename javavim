@@ -1,0 +1,43 @@
+#!/bin/bash
+# JavaVim launcher script
+# Usage: ./javavim [filename] or ./javavim -rb [filename] to rebuild
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Check for rebuild flag
+REBUILD=false
+ARGS=()
+
+for arg in "$@"; do
+    if [ "$arg" = "-rb" ]; then
+        REBUILD=true
+    else
+        ARGS+=("$arg")
+    fi
+done
+
+JAR_FILE="target/javavim.jar"
+
+# Force rebuild if -rb flag is passed or JAR doesn't exist
+if [ "$REBUILD" = true ] || [ ! -f "$JAR_FILE" ]; then
+    if [ "$REBUILD" = true ]; then
+        echo "Rebuild requested. Building JavaVim..."
+    else
+        echo "JAR not found. Building JavaVim..."
+    fi
+    
+    mvn clean package -DskipTests
+    
+    if [ $? -eq 0 ]; then
+        echo "Starting JavaVim..."
+        java -jar target/javavim.jar "${ARGS[@]}"
+    else
+        echo "Build failed!"
+        exit 1
+    fi
+else
+    echo "Using existing JAR: $JAR_FILE"
+    echo "Starting JavaVim..."
+    java -jar "$JAR_FILE" "${ARGS[@]}"
+fi

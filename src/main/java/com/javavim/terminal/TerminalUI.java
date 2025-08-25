@@ -4,7 +4,11 @@ import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 import com.javavim.buffer.ScreenBuffer;
 import com.googlecode.lanterna.TerminalSize;
+import com.googlecode.lanterna.input.KeyStroke;
+import com.googlecode.lanterna.input.KeyType;
+
 import java.io.IOException;
+import static com.googlecode.lanterna.input.KeyType.*;
 
 /**
  * Manages terminal UI operations using Lanterna library.
@@ -29,6 +33,7 @@ public class TerminalUI {
             this.initialized = true;
         } catch (Exception e) {
             // Terminal initialization failed (e.g., in CI/headless environment)
+            System.err.println("Terminal initialization failed: " + e.getMessage());
             this.initialized = false;
             // Don't throw exception, just mark as not initialized
         }
@@ -50,6 +55,13 @@ public class TerminalUI {
         }
     }
     
+    public void forceRefresh() throws IOException {
+        if (isInitialized()) {
+            screenBuffer.setDirty(true);
+            refresh();
+        }
+    }
+    
     public void clear() throws IOException {
         if (isInitialized()) {
             terminal.clearScreen();
@@ -65,26 +77,53 @@ public class TerminalUI {
     }
     
     private char readInputFromTerminal() throws IOException {
-        com.googlecode.lanterna.input.KeyStroke keyStroke = terminal.readInput();
+        KeyStroke keyStroke = terminal.readInput();
         if (keyStroke != null) {
             return processKeyStroke(keyStroke);
         }
         return 0;
     }
     
-    private char processKeyStroke(com.googlecode.lanterna.input.KeyStroke keyStroke) {
-        // Handle ESC key specifically
-        if (keyStroke.getKeyType() == com.googlecode.lanterna.input.KeyType.Escape) {
-            return 27; // ESC character
+    private char processKeyStroke(KeyStroke keyStroke) {
+        char specialKeyResult = handleSpecialKeys(keyStroke);
+        if (specialKeyResult != 0) {
+            return specialKeyResult;
         }
         
-        // Handle regular characters
+        return handleRegularKeys(keyStroke);
+    }
+    
+    private char handleSpecialKeys(KeyStroke keyStroke) {
+        KeyType keyType = keyStroke.getKeyType();
+        
+        if (keyType == Escape) {
+            return 27;
+        }
+        
+        return handleArrowKeys(keyType);
+    }
+    
+    private char handleArrowKeys(KeyType keyType) {
+        switch (keyType) {
+            case ArrowLeft:
+                return 'h';
+            case ArrowDown:
+                return 'j';
+            case ArrowUp:
+                return 'k';
+            case ArrowRight:
+                return 'l';
+            default:
+                return 0;
+        }
+    }
+    
+    private char handleRegularKeys(KeyStroke keyStroke) {
         Character character = keyStroke.getCharacter();
         if (character != null) {
             return character;
         }
-        
-        return 0; // Return null character for unhandled special keys
+        return 0;
     }
     
     public ScreenBuffer getScreenBuffer() {
@@ -119,19 +158,29 @@ public class TerminalUI {
     }
     
     private void configureTerminalDisplay() throws IOException {
+        // Minimal terminal setup for immediate display
         terminal.enterPrivateMode();
-        terminal.setCursorVisible(false); // Hide default terminal cursor
+        terminal.setCursorVisible(false);
         terminal.clearScreen();
         terminal.flush();
     }
     
     private boolean isTestEnvironment() {
-        // Check for common test environment indicators
-        String classPath = System.getProperty("java.class.path", "");
-        return classPath.contains("test-classes") || 
-               classPath.contains("junit") || 
-               classPath.contains("surefire") ||
-               System.getProperty("maven.test.skip") != null;
+        // For now, only disable when explicitly running tests, not from main execution
+        return System.getProperty("maven.test.skip") != null ||
+               System.getProperty("test") != null ||
+               isRunningFromTestMethod();
+    }
+    
+    private boolean isRunningFromTestMethod() {
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        for (StackTraceElement element : stack) {
+            String className = element.getClassName();
+            if (className.endsWith("Test") || className.contains(".test.")) {
+                return true;
+            }
+        }
+        return false;
     }
     
     private void setupScreenBuffer() throws IOException {
@@ -174,15 +223,21 @@ public class TerminalUI {
     
     private void renderCursor() throws IOException {
         try {
-            // Render cursor as a highlighted character at cursor position
-            int x = cursor.getX();
-            int y = cursor.getY();
-            if (isValidPosition(x, y)) {
-                char cursorChar = screenBuffer.getChar(x, y);
+            // Calculate display position (logical position + line number offset)
+            int logicalX = cursor.getX();
+            int logicalY = cursor.getY();
+            
+            // The display position needs to account for line numbers
+            // Line numbers take 4 characters + 1 separator = 5 character offset
+            int displayX = logicalX + 5; // TODO: Get this offset from DisplayRenderer
+            int displayY = logicalY;
+            
+            if (isValidPosition(displayX, displayY)) {
+                char cursorChar = screenBuffer.getChar(displayX, displayY);
                 if (cursorChar == 0) cursorChar = ' ';
                 terminal.setBackgroundColor(com.googlecode.lanterna.TextColor.ANSI.WHITE);
                 terminal.setForegroundColor(com.googlecode.lanterna.TextColor.ANSI.BLACK);
-                terminal.setCursorPosition(x, y);
+                terminal.setCursorPosition(displayX, displayY);
                 terminal.putCharacter(cursorChar);
                 terminal.resetColorAndSGR();
             }

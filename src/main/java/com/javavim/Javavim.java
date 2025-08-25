@@ -9,6 +9,7 @@ import com.javavim.display.StatusLine;
 import com.javavim.io.FileManager;
 import com.javavim.search.SearchEngine;
 import com.javavim.editor.UndoRedoManager;
+import com.javavim.cursor.CursorManager;
 import java.io.IOException;
 
 /**
@@ -19,6 +20,7 @@ public class Javavim {
     
     private TerminalUI terminalUI;
     private BufferManager bufferManager;
+    private CursorManager cursorManager;
     private DisplayRenderer displayRenderer;
     private StatusLine statusLine;
     private FileManager fileManager;
@@ -36,6 +38,7 @@ public class Javavim {
     public Javavim() {
         this.terminalUI = new TerminalUI();
         this.bufferManager = new BufferManager();
+        this.cursorManager = new CursorManager(terminalUI, bufferManager);
         this.displayRenderer = new DisplayRenderer();
         this.statusLine = new StatusLine();
         this.fileManager = new FileManager();
@@ -50,6 +53,7 @@ public class Javavim {
     public Javavim(TerminalUI terminalUI) {
         this();
         this.terminalUI = terminalUI;
+        this.cursorManager = new CursorManager(terminalUI, bufferManager);
     }
     
     public static void main(String[] args) {
@@ -73,7 +77,8 @@ public class Javavim {
         try {
             initialize(args);
             if (terminalUI.isInitialized()) {
-                showWelcomeScreen();
+                // Immediate display - no delays, just render and show
+                renderEditor();
                 mainLoop();
             } else {
                 handleNonTerminalMode();
@@ -89,7 +94,12 @@ public class Javavim {
         if (filename != null && !filename.isEmpty()) {
             Buffer buffer = fileManager.loadFile(filename);
             bufferManager.addBuffer(buffer);
-            statusLine.setMessage("Opened: " + filename);
+            statusLine.setMessage("Opened: " + filename + " (" + buffer.getLineCount() + " lines)");
+            
+            // Immediately render the file content like welcome buffer
+            if (terminalUI.isInitialized()) {
+                renderEditor();
+            }
         }
     }
     
@@ -123,40 +133,19 @@ public class Javavim {
     }
     
     public void moveCursorLeft() {
-        if (canMoveCursor()) {
-            if (terminalUI.getCursor().getX() > 0) {
-                terminalUI.getCursor().moveLeft();
-            }
-        }
+        cursorManager.moveCursorLeft();
     }
     
     public void moveCursorRight() {
-        if (canMoveCursor()) {
-            Buffer currentBuffer = bufferManager.getCurrentBuffer();
-            String currentLine = getCurrentLine(currentBuffer);
-            if (canMoveRightInLine(currentLine)) {
-                terminalUI.getCursor().moveRight();
-            }
-        }
+        cursorManager.moveCursorRight();
     }
     
     public void moveCursorUp() {
-        if (canMoveCursor()) {
-            if (terminalUI.getCursor().getY() > 0) {
-                terminalUI.getCursor().moveUp();
-                adjustCursorToLineLength();
-            }
-        }
+        cursorManager.moveCursorUp();
     }
     
     public void moveCursorDown() {
-        if (canMoveCursor()) {
-            Buffer currentBuffer = bufferManager.getCurrentBuffer();
-            if (canMoveDownInBuffer(currentBuffer)) {
-                terminalUI.getCursor().moveDown();
-                adjustCursorToLineLength();
-            }
-        }
+        cursorManager.moveCursorDown();
     }
     
     private void initialize(String[] args) throws IOException {
@@ -178,21 +167,26 @@ public class Javavim {
         }
         
         initializeCursor();
-    }
-    
-    private void initializeCursor() {
-        if (hasCursorAndBuffer()) {
-            terminalUI.getCursor().moveTo(0, 0);
+        
+        // Ensure screen buffer is marked for initial render
+        if (terminalUI.getScreenBuffer() != null) {
+            terminalUI.getScreenBuffer().setDirty(true);
         }
     }
     
-    private boolean hasCursorAndBuffer() {
-        return terminalUI.getCursor() != null && bufferManager.getCurrentBuffer() != null;
+    private void initializeCursor() {
+        cursorManager.initializeCursor();
     }
     
+    
     private void createWelcomeBuffer() {
-        Buffer welcomeBuffer = bufferManager.createNewBuffer("[Welcome]");
-        setupWelcomeContent(welcomeBuffer);
+        try {
+            openFile("test_content.txt");
+        } catch (IOException e) {
+            Buffer welcomeBuffer = bufferManager.createNewBuffer("[Welcome]");
+            setupWelcomeContent(welcomeBuffer);
+            statusLine.setMessage("Could not load test_content.txt: " + e.getMessage());
+        }
     }
     
     private void setupWelcomeContent(Buffer buffer) {
@@ -215,14 +209,6 @@ public class Javavim {
         buffer.setModified(false);
     }
     
-    private void showWelcomeScreen() throws IOException {
-        if (!terminalUI.isInitialized()) {
-            return;
-        }
-        
-        renderEditor();
-    }
-    
     private void mainLoop() throws IOException {
         while (running) {
             handleInput();
@@ -239,59 +225,14 @@ public class Javavim {
         
         Buffer currentBuffer = bufferManager.getCurrentBuffer();
         if (currentBuffer != null) {
-            constrainCursorToBuffer(currentBuffer);
+            cursorManager.constrainCursorToBuffer(currentBuffer);
             displayRenderer.render(currentBuffer, terminalUI.getScreenBuffer(), terminalUI.getCursor());
             statusLine.render(terminalUI.getScreenBuffer(), currentBuffer, terminalUI.getCursor());
         }
         
-        terminalUI.refresh();
+        terminalUI.forceRefresh();
     }
     
-    private void constrainCursorToBuffer(Buffer buffer) {
-        if (terminalUI.getCursor() == null || buffer == null) {
-            return;
-        }
-        
-        int cursorY = constrainCursorY(buffer);
-        int cursorX = constrainCursorX(buffer, cursorY);
-        updateCursorIfChanged(cursorX, cursorY);
-    }
-    
-    private int constrainCursorY(Buffer buffer) {
-        int cursorY = terminalUI.getCursor().getY();
-        int maxY = Math.max(0, buffer.getLineCount() - 1);
-        
-        if (cursorY > maxY) {
-            return maxY;
-        }
-        if (cursorY < 0) {
-            return 0;
-        }
-        return cursorY;
-    }
-    
-    private int constrainCursorX(Buffer buffer, int cursorY) {
-        int cursorX = terminalUI.getCursor().getX();
-        String currentLine = buffer.getLine(cursorY);
-        int maxX = currentLine != null ? currentLine.length() : 0;
-        
-        if (cursorX > maxX) {
-            return maxX;
-        }
-        if (cursorX < 0) {
-            return 0;
-        }
-        return cursorX;
-    }
-    
-    private void updateCursorIfChanged(int newX, int newY) {
-        boolean yChanged = newY != terminalUI.getCursor().getY();
-        boolean xChanged = newX != terminalUI.getCursor().getX();
-        
-        if (yChanged || xChanged) {
-            terminalUI.getCursor().moveTo(newX, newY);
-        }
-    }
     
     private void handleInput() throws IOException {
         char input = terminalUI.readInput();
@@ -419,12 +360,31 @@ public class Javavim {
     }
     
     public void moveCursorToNewLine() {
-        int newY = terminalUI.getCursor().getY() + 1;
-        terminalUI.getCursor().moveTo(0, newY);
+        cursorManager.moveCursorToNewLine();
     }
     
     private void handleRegularInput(Buffer buffer, char input) {
-        statusLine.setMessage("INSERT - Key: " + (int)input + " (" + input + ") - Press ESC to exit");
+        insertCharacterAtCursor(buffer, input);
+        statusLine.setMessage("-- INSERT --");
+    }
+    
+    private void insertCharacterAtCursor(Buffer buffer, char character) {
+        int cursorRow = terminalUI.getCursor().getY();
+        int cursorCol = terminalUI.getCursor().getX();
+        
+        String currentLine = buffer.getLine(cursorRow);
+        if (currentLine != null) {
+            String newLine = insertCharacterInString(currentLine, cursorCol, character);
+            buffer.setLine(cursorRow, newLine);
+            moveCursorRight();
+        }
+    }
+    
+    private String insertCharacterInString(String line, int position, char character) {
+        if (position >= line.length()) {
+            return line + character;
+        }
+        return line.substring(0, position) + character + line.substring(position);
     }
     
     private void handleCommandModeInput(char input) throws IOException {
@@ -541,40 +501,6 @@ public class Javavim {
         }
     }
     
-    private boolean canMoveCursor() {
-        return terminalUI.getCursor() != null && bufferManager.getCurrentBuffer() != null;
-    }
-    
-    private String getCurrentLine(Buffer buffer) {
-        if (buffer != null) {
-            int currentRow = terminalUI.getCursor().getY();
-            return buffer.getLine(currentRow);
-        }
-        return null;
-    }
-    
-    private boolean canMoveRightInLine(String line) {
-        if (line == null) return false;
-        int currentCol = terminalUI.getCursor().getX();
-        return currentCol < line.length();
-    }
-    
-    private boolean canMoveDownInBuffer(Buffer buffer) {
-        if (buffer == null) return false;
-        int currentRow = terminalUI.getCursor().getY();
-        return currentRow < buffer.getLineCount() - 1;
-    }
-    
-    private void adjustCursorToLineLength() {
-        Buffer currentBuffer = bufferManager.getCurrentBuffer();
-        String currentLine = getCurrentLine(currentBuffer);
-        if (currentLine != null) {
-            int currentCol = terminalUI.getCursor().getX();
-            if (currentCol > currentLine.length()) {
-                terminalUI.getCursor().moveTo(currentLine.length(), terminalUI.getCursor().getY());
-            }
-        }
-    }
     
     private void showHelp() {
         Buffer currentBuffer = bufferManager.getCurrentBuffer();
@@ -608,9 +534,6 @@ public class Javavim {
     }
 
     public int getCursorY() {
-        if (terminalUI.getCursor() != null) {
-            return terminalUI.getCursor().getY();
-        }
-        return 0;
+        return cursorManager.getCursorY();
     }
 }

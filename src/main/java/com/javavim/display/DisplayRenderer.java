@@ -33,7 +33,6 @@ public class DisplayRenderer {
         int visibleLines = calculateVisibleLines(screenBuffer);
         
         renderLines(buffer, screenBuffer, contentWidth, visibleLines);
-        updateCursorPosition(cursor, screenBuffer);
     }
     
     public void setShowLineNumbers(boolean showLineNumbers) {
@@ -162,25 +161,6 @@ public class DisplayRenderer {
         return scrollOffsetY < buffer.getLineCount() - 1;
     }
     
-    private void updateCursorPosition(Cursor cursor, ScreenBuffer screenBuffer) {
-        if (cursor == null) {
-            return;
-        }
-        
-        // Calculate cursor position based on line numbers and scrolling
-        int cursorX = showLineNumbers ? lineNumberWidth + 1 : 0;
-        int cursorY = cursor.getY() - scrollOffsetY;
-        
-        // Ensure cursor is visible on screen
-        if (isValidScreenPosition(cursorX, cursorY, screenBuffer)) {
-            cursor.moveTo(cursorX, cursorY);
-        }
-    }
-    
-    private boolean isValidScreenPosition(int x, int y, ScreenBuffer screenBuffer) {
-        return x >= 0 && x < screenBuffer.getWidth() && 
-               y >= 0 && y < screenBuffer.getHeight() - 1; // -1 for status line
-    }
     
     private void updateLineNumberWidth() {
         this.lineNumberWidth = showLineNumbers ? 4 : 0;

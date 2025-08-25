@@ -98,9 +98,9 @@ public class CursorManager {
     }
     
     private boolean canMoveRightInLine(String line) {
-        if (line == null) return false;
+        if (line == null || line.isEmpty()) return false;
         int currentCol = terminalUI.getCursor().getX();
-        return currentCol < line.length();
+        return currentCol < line.length() - 1;
     }
     
     private boolean canMoveDownInBuffer(Buffer buffer) {
@@ -140,7 +140,7 @@ public class CursorManager {
     private int constrainCursorX(Buffer buffer, int cursorY) {
         int cursorX = terminalUI.getCursor().getX();
         String currentLine = buffer.getLine(cursorY);
-        int maxX = currentLine != null ? currentLine.length() : 0;
+        int maxX = getMaxCursorXPosition(currentLine);
         
         if (cursorX > maxX) {
             return maxX;
@@ -149,6 +149,13 @@ public class CursorManager {
             return 0;
         }
         return cursorX;
+    }
+    
+    private int getMaxCursorXPosition(String line) {
+        if (line == null || line.isEmpty()) {
+            return 0;
+        }
+        return line.length() - 1;
     }
     
     private void updateCursorIfChanged(int newX, int newY) {

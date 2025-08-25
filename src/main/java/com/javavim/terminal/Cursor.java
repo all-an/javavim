@@ -96,7 +96,7 @@ public class Cursor {
     }
     
     private boolean canMoveRight() {
-        return x < maxX - 1;
+        return x < maxX;
     }
     
     private boolean canMoveUp() {
