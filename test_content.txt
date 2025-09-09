@@ -1,5 +1,0 @@
-Hello World!
-This is a test file for JavaVim.
-Line 3 of the test content.
-Line 4 with some more text.
-Final line of the test file.

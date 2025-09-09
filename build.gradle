@@ -1,0 +1,148 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'org.beryx.jlink' version '3.0.1'
+}
+
+group = 'com.javavim'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(24)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+javafx {
+    version = '23'
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.swing']
+}
+
+dependencies {
+    // JavaFX (handled by plugin)
+    
+    // Terminal UI (keeping for compatibility)
+    implementation 'com.googlecode.lanterna:lanterna:3.1.2'
+    
+    // Command Line Interface
+    implementation 'info.picocli:picocli:4.7.5'
+    
+    // JLine for terminal operations
+    implementation 'org.jline:jline-terminal:3.21.0'
+    
+    // Eclipse JDT for Language Server
+    implementation 'org.eclipse.jdt:org.eclipse.jdt.core:3.33.0'
+    
+    // RichTextFX for advanced text editing
+    implementation 'org.fxmisc.richtext:richtextfx:0.11.2'
+    
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.mockito:mockito-core:5.5.0'
+    testImplementation 'org.testfx:testfx-core:4.0.18'
+    testImplementation 'org.testfx:testfx-junit5:4.0.18'
+}
+
+application {
+    mainClass = 'com.javavim.JavavimApplication'
+    applicationDefaultJvmArgs = [
+        '--enable-preview',
+        '--add-modules', 'java.base',
+        '--enable-native-access=ALL-UNNAMED',
+        '--enable-native-access=javafx.graphics'
+    ]
+}
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs += ['--enable-preview']
+}
+
+tasks.withType(Test) {
+    jvmArgs(['--enable-preview', '--enable-native-access=ALL-UNNAMED'])
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
+tasks.withType(JavaExec) {
+    jvmArgs(['--enable-preview', '--enable-native-access=ALL-UNNAMED'])
+}
+
+// Task for compiling C++ libraries
+task compileCpp(type: Exec) {
+    description = 'Compile C++ optimization libraries for text processing'
+    group = 'build'
+    
+    doFirst {
+        mkdir 'src/main/cpp'
+        mkdir 'src/main/resources/native'
+    }
+    
+    if (org.gradle.internal.os.OperatingSystem.current().windows) {
+        // Windows: Use MSVC cl.exe (requires x64 Native Tools Command Prompt)
+        commandLine 'cmd', '/c', '''
+            @echo off
+            echo Compiling C++ modules with MSVC...
+            if not exist "src\\main\\cpp\\textutils.cpp" (
+                echo Creating sample textutils.cpp
+                echo #include ^<stdio.h^> > src\\main\\cpp\\textutils.cpp
+                echo __declspec^(dllexport^) int process_text^(const char* text^) { return strlen^(text^); } >> src\\main\\cpp\\textutils.cpp
+            )
+            cd src\\main\\cpp
+            cl /LD textutils.cpp /Fe:..\\..\\..\\src\\main\\resources\\native\\textutils.dll 2>nul || (
+                echo WARNING: MSVC not found. Please run from x64 Native Tools Command Prompt
+                echo or install Visual Studio Build Tools 2022
+                exit /b 0
+            )
+            echo C++ module compiled successfully
+        '''
+    } else {
+        // Linux/macOS: Use g++
+        commandLine 'sh', '-c', '''
+            echo "Compiling C++ modules with g++..."
+            mkdir -p src/main/resources/native
+            if [ ! -f "src/main/cpp/textutils.cpp" ]; then
+                echo "Creating sample textutils.cpp"
+                cat > src/main/cpp/textutils.cpp << 'EOF'
+#include <cstring>
+extern "C" {
+    __attribute__((visibility("default"))) int process_text(const char* text) {
+        return strlen(text);
+    }
+}
+EOF
+            fi
+            cd src/main/cpp
+            g++ -shared -fPIC textutils.cpp -o ../resources/native/libtextutils.so
+            echo "C++ module compiled successfully"
+        '''
+    }
+}
+
+// Make Java compilation depend on C++ compilation
+compileJava.dependsOn compileCpp
+
+jlink {
+    options = ['--strip-debug', '--compress', '2', '--no-header-files', '--no-man-pages']
+    launcher {
+        name = 'javavim'
+    }
+    jpackage {
+        if (org.gradle.internal.os.OperatingSystem.current().windows) {
+            installerType = 'msi'
+        } else if (org.gradle.internal.os.OperatingSystem.current().macOsX) {
+            installerType = 'dmg'
+        } else {
+            installerType = 'deb'
+        }
+        installerName = 'JavaVim'
+        appVersion = project.version
+    }
+}

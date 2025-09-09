@@ -1,7 +1,20 @@
 # JavaVim Roadmap
 
 ## Overview
-This roadmap outlines the development phases for JavaVim, a terminal-based vim-like editor written in pure Java with Language Server integration.
+This roadmap outlines the development phases for JavaVim, a JavaFX-based vim-like editor written in pure Java with Language Server integration.
+
+## Java REPL Integration (Future Enhancement)
+
+**Best approach**: Use existing Java tools:
+- **JShell API** - Built-in Java REPL capabilities
+- **Eclipse JDT** - For code completion and analysis  
+- **Java Compiler API** - For on-the-fly compilation
+
+**Implementation strategy**:
+1. Keep current JavaFX-based editor
+2. Add C++ modules for performance-critical operations via JNI
+3. Integrate JShell for REPL functionality
+4. Use LSP for advanced Java features
 
 ## Phase 1: Foundation (Current)
 **Status: In Progress** ✅

@@ -1,0 +1,71 @@
+/* JavaVim Dark Theme */
+
+.root {
+    -fx-base: #1e1e1e;
+    -fx-background: #1e1e1e;
+    -fx-control-inner-background: #1e1e1e;
+    -fx-control-inner-background-alt: #252526;
+}
+
+/* Text styling */
+.text {
+    -fx-fill: #d4d4d4;
+}
+
+.text-area {
+    -fx-background-color: #1e1e1e;
+    -fx-text-fill: #d4d4d4;
+    -fx-font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    -fx-font-size: 14px;
+    -fx-border-color: #3e3e3e;
+    -fx-border-width: 1px;
+}
+
+.text-area:focused {
+    -fx-border-color: #007acc;
+    -fx-border-width: 2px;
+}
+
+.text-area .content {
+    -fx-background-color: #1e1e1e;
+}
+
+.text-area .scroll-pane {
+    -fx-background-color: #1e1e1e;
+}
+
+.text-area .scroll-pane .viewport {
+    -fx-background-color: #1e1e1e;
+}
+
+.text-area .scroll-pane .content {
+    -fx-background-color: #1e1e1e;
+}
+
+/* Scrollbar styling */
+.scroll-bar {
+    -fx-background-color: #2e2e2e;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #2e2e2e;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #464647;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #5a5a5a;
+}
+
+/* Selection highlighting */
+.text-area .selection {
+    -fx-fill: #264f78;
+}
+
+/* Cursor styling */
+.text-area .caret {
+    -fx-stroke: #d4d4d4;
+    -fx-stroke-width: 2px;
+}

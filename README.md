@@ -1,84 +1,168 @@
-# javavim
+# JavaVim
 
-Terminal based vim like editor written in pure Java with Language Server integration
+A modern vim-style editor built with JavaFX, designed for Java code editing with vim-like controls and potential C++ optimizations through Java 24 FFM (Foreign Function & Memory) API.
 
 <p align="center">
-        <a href="[https://www.linkedin.com/in/all-an/](https://www.linkedin.com/in/allan-pereira-abrahao/)">
-            <img align="center" width="344" height="342"  src="/javavim-logo.png" />
-        </a>
+        <img align="center" width="344" height="342" src="/javavim-logo.png" />
 </p>
 
-Requirements
+## Features
 
-    JDK 11+ (Java Development Kit): Required for compiling and running Java code.
-    JUnit and Hamcrest: Included in the lib/ directory for Java testing.
-    Lanterna and JLine: For terminal-based UI management.
-    Eclipse JDT Language Server: For Java language server integration.
+- **Dark Theme UI**: Modern dark theme interface built with JavaFX
+- **Vim-style Controls**: Complete vim keybindings and modal editing (Normal, Insert, Visual, Command modes)
+- **Java 24 Ready**: Built to leverage Java 24's latest features including FFM API
+- **JavaFX + Swing Hybrid**: Primary JavaFX interface with Swing components for legacy compatibility
+- **High Performance**: C++ optimization modules for text processing via FFM when needed
+- **Modern Build System**: Gradle-based build system with Java 24 toolchain support
 
-Notes
+## Requirements
 
-    The project uses JUnit for comprehensive Java testing with clean code principles.
-    All methods follow single responsibility principle with no more than one conditional per method.
-    The project is structured to support easy integration of additional features like a terminal-based interface, keybindings, and language server integration.
+- **Java 24**: Latest OpenJDK 24 (required)
+- **JavaFX 23**: Modern JavaFX for GUI components  
+- **Gradle 9+**: Build system with Java 24 support
+- **C++ Compiler**: (Optional) For native optimization modules
 
-Project Goals:
+## Quick Start
 
-    Implementing a terminal-based interface for the code editor.
-    Adding Vim-like keybindings.
-    Integrating Git functionality similar to Visual Studio Code's built-in features.
-    Expanding testing frameworks for Java
+### Running the Application
 
-Project extra Goals:
+```bash
+# Using Gradle wrapper
+./gradlew run
 
-    Master clean code principles with single responsibility methods.
-    Improve Java knowledge and best practices.
-    Learn how to create a Java code editor in the terminal using Eclipse JDT.
-    Implement comprehensive unit testing for all components.
-
-Project Structure:
-
-    Pure Java Implementation: Clean, maintainable Java code following SOLID principles.
-    Comprehensive Unit Testing: JUnit-based testing for all components with high coverage.
-    Minimalistic and Terminal-Based Approach: The project focuses on building a minimalistic code editor that runs in the terminal.
-    Vim-like Keybindings: The project will include Vim-like keybindings by default.
-    Integrated Terminal: The editor will have an integrated terminal within it.
-    Git Integration: The project will include Git integration similar to Visual Studio Code's built-in Git features.
-    File Explorer: Similar to Vim's NerdTree, the project will include a file explorer feature for easy navigation and file management within the editor.
-    Build Tools: The project will avoid using Maven, Gradle, or similar build tools; all build processes will be managed manually or with custom scripts.
-    Testing: JUnit for comprehensive Java testing with clean code principles.
-    Debugging: JDB for debugging Java parts, with IDE integration support.
-    Java Libraries:
-        Picocli: For command-line interface (CLI) functionality.
-        JLine or Lanterna: For terminal-based UI management.
-
-Setup and Usage
-
-1. Compile and Run the Project
-
-To compile and run the project, use the run.sh script:
-
-```
-bash run.sh
-
+# Or with local Gradle installation  
+gradle run
 ```
 
-2. Run the Java Tests
+### Building
 
-To compile and run the Java tests, use the test_java.sh script:
+```bash
+# Clean and build
+./gradlew clean build
+
+# Run tests
+./gradlew test
+
+# Create distribution
+./gradlew jpackage
+```
+
+## Architecture
+
+### Core Components
+
+- **JavaFX GUI**: Primary user interface with dark theme
+- **Vim Engine**: Modal editing logic ported from terminal version
+- **Text Processing**: High-performance text manipulation with optional C++ modules
+- **File Management**: Advanced file operations and project management
+- **Language Integration**: Eclipse JDT integration for Java development
+
+### Technology Stack
+
+- **Frontend**: JavaFX 23 with custom dark theme CSS
+- **Backend**: Pure Java 24 with preview features enabled
+- **Native Extensions**: C++ modules via Java 24 FFM API
+- **Build System**: Gradle 9 with JavaFX plugin
+- **Testing**: JUnit 5 + TestFX for UI testing
+
+## Development
+
+### Project Structure
 
 ```
-bash test_java.sh
-
+javavim/
+├── src/main/java/com/javavim/
+│   ├── JavavimApplication.java      # Main JavaFX application
+│   ├── gui/                         # JavaFX UI components
+│   ├── vim/                         # Vim logic and keybindings
+│   ├── native/                      # FFM integration
+│   └── legacy/                      # Original terminal components
+├── src/main/resources/
+│   ├── dark-theme.css              # Dark theme styling
+│   └── fxml/                       # FXML layouts
+├── src/main/cpp/                   # Native C++ modules
+└── src/test/                       # Tests
 ```
 
+### Key Features
 
-## Javavim first project structure
+1. **Modal Editing**: Full vim modes (Normal, Insert, Visual, Command)
+2. **Dark Theme**: Professional dark color scheme optimized for long coding sessions
+3. **Performance**: Native C++ modules for intensive text operations
+4. **Modern Java**: Leverages Java 24 features and FFM API
+5. **Cross-Platform**: JavaFX ensures consistent experience across Windows, macOS, and Linux
 
-## Overview
+### Building Native Modules (C++)
 
-Javavim is a minimalistic terminal-based code editor project implemented using Java. It serves as a learning project to:
+JavaVim uses C++ modules for performance-critical text operations via Java 24 FFM API.
 
-- Improve Java knowledge
-- Learn how to create a Java code editor in the terminal using Eclipse JDT
+#### Prerequisites
+- **Visual Studio Community 2022** or **Build Tools for Visual Studio 2022** (free)
+- Includes MSVC compiler (`cl.exe`) and x64 Native Tools Command Prompt
 
-This `README.md` provides a comprehensive overview of the **Javavim** project, including its structure, goals, and how to compile, run, and test the code. Let me know if you need any further updates or if there's anything else you'd like to add!
+#### Building on Windows
+
+**IMPORTANT:** Use the **x64 Native Tools Command Prompt** (not regular command prompt):
+
+1. Search for "**x64 Native Tools Command Prompt for VS**" in Start menu
+2. Navigate to your project directory
+3. Build C++ modules:
+
+```cmd
+# Automatic compilation via Gradle
+.\gradlew compileCpp
+
+# Manual compilation for text processing module
+cd src\main\cpp
+cl /LD textutils.cpp /Fe:textutils.dll
+```
+
+#### Building on Linux/macOS
+```bash
+cd src/main/cpp
+g++ -shared -fPIC -o libtextutils.so textutils.cpp
+```
+
+The build system automatically detects your platform and compiles the appropriate native library format (.dll on Windows, .so on Linux/macOS).
+
+## Configuration
+
+The application supports various JVM arguments for optimal performance:
+
+```bash
+# Enable Java 24 preview features and native access
+java --enable-preview --enable-native-access=ALL-UNNAMED --enable-native-access=javafx.graphics
+```
+
+## Vim Bindings
+
+JavaVim implements core vim functionality:
+
+- **Normal Mode**: `h`, `j`, `k`, `l` navigation, `i` for insert, `:` for commands
+- **Insert Mode**: Regular typing, `ESC` to return to normal mode
+- **Visual Mode**: Text selection and manipulation
+- **Command Mode**: File operations, search, and editor commands
+
+## Contributing
+
+JavaVim follows clean code principles with comprehensive testing:
+
+- Single responsibility per method
+- Comprehensive unit test coverage
+- Modern Java idioms and patterns
+- Cross-platform compatibility
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+
+## Roadmap
+
+- [ ] Complete vim keybinding implementation
+- [ ] Syntax highlighting for Java
+- [ ] Language Server Protocol integration
+- [ ] Plugin system architecture  
+- [ ] Git integration
+- [ ] File tree explorer
+- [ ] Multiple buffer/tab support
+- [ ] Configuration system
