@@ -1,0 +1,9 @@
+-cp
+C:\\Users\\Public\\code\\java-web-android-jar-cli-terminal\\javafxterminaltoexe\\target\\javafxterminaltoexe-1.0-SNAPSHOT.jar
+--no-fallback
+-o
+C:\\Users\\Public\\code\\java-web-android-jar-cli-terminal\\javafxterminaltoexe\\target\\SwingApp
+--no-fallback
+-H:+ReportExceptionStackTraces
+-H:+AddAllCharsets
+--verbose

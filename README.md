@@ -1,168 +1,246 @@
-# JavaVim
+# VIM Terminal Edition - A Terminal-Style VIM Editor
 
-A modern vim-style editor built with JavaFX, designed for Java code editing with vim-like controls and potential C++ optimizations through Java 24 FFM (Foreign Function & Memory) API.
-
-<p align="center">
-        <img align="center" width="344" height="342" src="/javavim-logo.png" />
-</p>
+A vim-like text editor with a classic terminal aesthetic (black background, green text) built with Java Swing.
 
 ## Features
 
-- **Dark Theme UI**: Modern dark theme interface built with JavaFX
-- **Vim-style Controls**: Complete vim keybindings and modal editing (Normal, Insert, Visual, Command modes)
-- **Java 24 Ready**: Built to leverage Java 24's latest features including FFM API
-- **JavaFX + Swing Hybrid**: Primary JavaFX interface with Swing components for legacy compatibility
-- **High Performance**: C++ optimization modules for text processing via FFM when needed
-- **Modern Build System**: Gradle-based build system with Java 24 toolchain support
-
-## Requirements
-
-- **Java 24**: Latest OpenJDK 24 (required)
-- **JavaFX 23**: Modern JavaFX for GUI components  
-- **Gradle 9+**: Build system with Java 24 support
-- **C++ Compiler**: (Optional) For native optimization modules
+- **4 VIM Modes**: NORMAL, INSERT, VISUAL, COMMAND
+- **NerdTree File Explorer**: Ctrl+N to toggle file tree (like NerdTree plugin)
+- **Classic Terminal Styling**: Black background with green monospace text
+- **Block Cursor**: Terminal-style blinking block cursor
+- **Essential VIM Keybindings**: hjkl navigation, i/a/o for insert, v for visual, : for commands
+- **File Operations**: Open, edit, and save files
+- **Fullscreen Terminal Experience**: Borderless window with status bar
 
 ## Quick Start
 
-### Running the Application
-
+### Running from JAR
 ```bash
-# Using Gradle wrapper
-./gradlew run
+# Open without a file
+java -jar target\javafxterminaltoexe-1.0-SNAPSHOT.jar
 
-# Or with local Gradle installation  
-gradle run
+# Open a specific file
+java -jar target\javafxterminaltoexe-1.0-SNAPSHOT.jar MyFile.java
 ```
 
-### Building
-
+### Running from Native Executable
 ```bash
-# Clean and build
-./gradlew clean build
+# Open without a file
+.\SwingApp\SwingApp.exe
 
-# Run tests
-./gradlew test
-
-# Create distribution
-./gradlew jpackage
+# Open a specific file
+.\SwingApp\SwingApp.exe MyFile.java
 ```
 
-## Architecture
+## VIM Commands
 
-### Core Components
+### FILE EXPLORER (NerdTree)
+- `Ctrl+N` - Toggle file explorer tree (works in NORMAL and INSERT modes)
+- `Tab` - Switch focus between tree and editor
+- **In tree view (vim-style navigation):**
+  - `j` - Move down (or Down arrow)
+  - `k` - Move up (or Up arrow)
+  - `h` - Collapse folder (or Left arrow)
+  - `l` - Expand folder (or Right arrow)
+  - `Enter` - Open selected file
+  - Double-click - Open file
+  - `Tab` - Return focus to editor
+  - `Ctrl+N` - Close the tree
 
-- **JavaFX GUI**: Primary user interface with dark theme
-- **Vim Engine**: Modal editing logic ported from terminal version
-- **Text Processing**: High-performance text manipulation with optional C++ modules
-- **File Management**: Advanced file operations and project management
-- **Language Integration**: Eclipse JDT integration for Java development
+### NORMAL MODE (default)
+- `h, j, k, l` - Move cursor left, down, up, right
+- `i` - Enter INSERT mode (insert before cursor)
+- `a` - Append (insert after cursor)
+- `A` - Append at end of line
+- `o` - Open new line below and enter INSERT mode
+- `v` - Enter VISUAL mode
+- `x` - Delete character under cursor
+- `:` - Enter COMMAND mode
+- `Ctrl+N` - Toggle NerdTree file explorer
+- `Tab` - Focus file tree (if visible)
 
-### Technology Stack
+### INSERT MODE
+- `ESC` - Return to NORMAL mode
+- `Ctrl+N` - Toggle NerdTree file explorer
+- Type freely to edit text
 
-- **Frontend**: JavaFX 23 with custom dark theme CSS
-- **Backend**: Pure Java 24 with preview features enabled
-- **Native Extensions**: C++ modules via Java 24 FFM API
-- **Build System**: Gradle 9 with JavaFX plugin
-- **Testing**: JUnit 5 + TestFX for UI testing
+### VISUAL MODE
+- `h, j, k, l` - Extend selection in direction
+- `d` - Delete selection
+- `ESC` - Return to NORMAL mode
 
-## Development
+### COMMAND MODE
+- `:w` - Save current file
+- `:w filename` - Save as filename
+- `:e filename` - Open file
+- `:q` - Quit application
+- `:wq` or `:x` - Save and quit
+- `:help` - Show help screen
+- `ESC` - Return to NORMAL mode
 
-### Project Structure
+## Prerequisites
 
-```
-javavim/
-├── src/main/java/com/javavim/
-│   ├── JavavimApplication.java      # Main JavaFX application
-│   ├── gui/                         # JavaFX UI components
-│   ├── vim/                         # Vim logic and keybindings
-│   ├── native/                      # FFM integration
-│   └── legacy/                      # Original terminal components
-├── src/main/resources/
-│   ├── dark-theme.css              # Dark theme styling
-│   └── fxml/                       # FXML layouts
-├── src/main/cpp/                   # Native C++ modules
-└── src/test/                       # Tests
-```
+- Java Development Kit (JDK) 21 or later
+- Maven
+- jpackage (included with JDK 16+)
 
-### Key Features
+## Building the Application
 
-1. **Modal Editing**: Full vim modes (Normal, Insert, Visual, Command)
-2. **Dark Theme**: Professional dark color scheme optimized for long coding sessions
-3. **Performance**: Native C++ modules for intensive text operations
-4. **Modern Java**: Leverages Java 24 features and FFM API
-5. **Cross-Platform**: JavaFX ensures consistent experience across Windows, macOS, and Linux
+### Step 1: Build the JAR file
 
-### Building Native Modules (C++)
-
-JavaVim uses C++ modules for performance-critical text operations via Java 24 FFM API.
-
-#### Prerequisites
-- **Visual Studio Community 2022** or **Build Tools for Visual Studio 2022** (free)
-- Includes MSVC compiler (`cl.exe`) and x64 Native Tools Command Prompt
-
-#### Building on Windows
-
-**IMPORTANT:** Use the **x64 Native Tools Command Prompt** (not regular command prompt):
-
-1. Search for "**x64 Native Tools Command Prompt for VS**" in Start menu
-2. Navigate to your project directory
-3. Build C++ modules:
-
-```cmd
-# Automatic compilation via Gradle
-.\gradlew compileCpp
-
-# Manual compilation for text processing module
-cd src\main\cpp
-cl /LD textutils.cpp /Fe:textutils.dll
+```powershell
+mvn clean package
 ```
 
-#### Building on Linux/macOS
-```bash
-cd src/main/cpp
-g++ -shared -fPIC -o libtextutils.so textutils.cpp
+This will create `javafxterminaltoexe-1.0-SNAPSHOT.jar` in the `target` directory.
+
+### Step 2: Create Native Executable with jpackage
+
+#### Option A: Create App-Image (Recommended - No installer needed)
+
+```powershell
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type app-image --win-console
 ```
 
-The build system automatically detects your platform and compiles the appropriate native library format (.dll on Windows, .so on Linux/macOS).
+This creates a `SwingApp` folder containing:
+- `SwingApp.exe` - The executable
+- `runtime` folder - Bundled Java runtime
+- `app` folder - Your application JAR
 
-## Configuration
+**To run**: Simply double-click `SwingApp\SwingApp.exe` or distribute the entire `SwingApp` folder.
 
-The application supports various JVM arguments for optimal performance:
+#### Option B: Create Windows Installer (Requires WiX Toolset)
 
-```bash
-# Enable Java 24 preview features and native access
-java --enable-preview --enable-native-access=ALL-UNNAMED --enable-native-access=javafx.graphics
+To create a proper `.exe` installer, you need to install WiX Toolset first.
+
+### Installing WiX Toolset
+
+**Method 1: Using winget (Recommended)**
+```powershell
+winget install -e --id WiXToolset.WiX
 ```
 
-## Vim Bindings
+**Method 2: Manual Download**
+1. Visit https://wixtoolset.org/
+2. Download WiX Toolset v3.x or later
+3. Install and add to your PATH environment variable
 
-JavaVim implements core vim functionality:
+**Verify Installation:**
+```powershell
+wix --version
+# or for WiX v3
+light.exe -?
+```
 
-- **Normal Mode**: `h`, `j`, `k`, `l` navigation, `i` for insert, `:` for commands
-- **Insert Mode**: Regular typing, `ESC` to return to normal mode
-- **Visual Mode**: Text selection and manipulation
-- **Command Mode**: File operations, search, and editor commands
+After installing WiX, **restart your terminal** and run:
 
-## Contributing
+```powershell
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type exe --win-console
+```
 
-JavaVim follows clean code principles with comprehensive testing:
+This will create `SwingApp-1.0.exe` installer file.
 
-- Single responsibility per method
-- Comprehensive unit test coverage
-- Modern Java idioms and patterns
-- Cross-platform compatibility
+### Creating MSI Installer (Alternative)
 
-## License
+```powershell
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type msi --win-console
+```
 
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+## Running the Application
 
-## Roadmap
+### From JAR:
+```powershell
+# No file (shows welcome screen)
+java -jar target\javafxterminaltoexe-1.0-SNAPSHOT.jar
 
-- [ ] Complete vim keybinding implementation
-- [ ] Syntax highlighting for Java
-- [ ] Language Server Protocol integration
-- [ ] Plugin system architecture  
-- [ ] Git integration
-- [ ] File tree explorer
-- [ ] Multiple buffer/tab support
-- [ ] Configuration system
+# Open a specific file
+java -jar target\javafxterminaltoexe-1.0-SNAPSHOT.jar example.java
+```
+
+### From Native Executable:
+```powershell
+# No file (shows welcome screen)
+.\SwingApp\SwingApp.exe
+
+# Open a specific file
+.\SwingApp\SwingApp.exe example.java
+```
+
+### From Installer:
+Run the installer and it will install the application to your system.
+
+## Tips for Using the VIM Editor
+
+1. **Browse files**: Press `Ctrl+N` to open the file explorer, navigate with arrow keys, press `Enter` to open a file
+2. **Start editing**: Press `i` to enter INSERT mode, type your text, press `ESC` to return to NORMAL mode
+3. **Save your work**: Press `:`, type `w`, press `Enter`
+4. **Exit**: Press `:`, type `q`, press `Enter`
+5. **Save and exit**: Press `:`, type `wq`, press `Enter`
+6. **Get help anytime**: Press `:`, type `help`, press `Enter`
+
+## Distribution
+
+- **App-Image**: Distribute the entire `SwingApp` folder (contains bundled runtime)
+- **Installer**: Distribute the `.exe` or `.msi` installer file
+
+## Additional jpackage Options
+
+### Custom Icon
+```powershell
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type app-image --win-console --icon path\to\icon.ico
+```
+
+### Set Version
+```powershell
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type app-image --win-console --app-version 1.0.0
+```
+
+### Add Description
+```powershell
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type app-image --win-console --description "Simple Swing Application"
+```
+
+## Troubleshooting
+
+### jpackage not found
+- Make sure you're using JDK 16 or later
+- Check that `JAVA_HOME` is set correctly
+- Verify jpackage is in your PATH: `jpackage --version`
+
+### WiX Toolset not found
+- Install WiX Toolset using the instructions above
+- Restart your terminal/PowerShell after installation
+- Verify WiX is in PATH: `wix --version` or `light.exe -?`
+
+### Application doesn't start
+- Try running from command line to see error messages
+- Ensure all dependencies are included in the JAR
+- Check that the main class is correct: `org.example.Main`
+
+## Project Structure
+
+```
+javafxterminaltoexe/
+├── src/
+│   └── main/
+│       ├── java/
+│       │   └── org/
+│       │       └── example/
+│       │           └── Main.java
+│       └── resources/
+├── target/
+│   └── javafxterminaltoexe-1.0-SNAPSHOT.jar
+├── SwingApp/                    (created by jpackage)
+│   ├── SwingApp.exe
+│   ├── runtime/
+│   └── app/
+├── pom.xml
+└── README.md
+```
+
+## Notes
+
+- The `--win-console` flag keeps the console window open (useful for debugging)
+- Remove `--win-console` if you want a GUI-only application without console
+- The app-image approach is recommended as it doesn't require WiX installation
+- The bundled runtime makes the application self-contained (no JRE needed on target machine)
