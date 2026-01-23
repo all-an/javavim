@@ -21,9 +21,14 @@ public class Main extends JFrame {
     private static final Color STATUS_BG = new Color(0, 50, 0);         // Dark green
     private static final Color VISUAL_SELECT = new Color(0, 100, 0);    // Selection color
 
+    // Configuration
+    private static final Config config = new Config().load();
+
     // Components
     private JTextPane editorPane;
     private JLabel statusBar;
+    private JLabel focusIndicator;
+    private JPanel statusPanel;
     private VimMode currentMode = VimMode.NORMAL;
     private String commandBuffer = "";
     private String currentFilePath = null;
@@ -33,7 +38,21 @@ public class Main extends JFrame {
     private JTree fileTree;
     private JScrollPane treeScrollPane;
     private JSplitPane splitPane;
+    private JSplitPane mainSplitPane;  // Vertical split for editor/terminal
     private boolean nerdTreeVisible = false;
+    private File currentRootDir;  // Current directory shown in explorer
+
+    // Terminal components
+    private JTextArea terminalArea;
+    private JTextField terminalInput;
+    private JPanel terminalPanel;
+    private boolean terminalVisible = false;
+    private Process currentProcess;
+    private BufferedWriter processWriter;
+
+    // Line numbers
+    private JTextArea lineNumbers;
+    private JScrollPane editorScrollPane;
 
     public Main(String filename) {
         // Set up the frame - fullscreen terminal style
@@ -53,11 +72,14 @@ public class Main extends JFrame {
         editorPane = new JTextPane();
         editorPane.setBackground(BG_COLOR);
         editorPane.setForeground(FG_COLOR);
-        editorPane.setFont(new Font("Consolas", Font.PLAIN, 16));
+        editorPane.setFont(new Font("Consolas", Font.PLAIN, config.getFontSize()));
         editorPane.setCaretColor(FG_COLOR);
         editorPane.setSelectionColor(VISUAL_SELECT);
         editorPane.setSelectedTextColor(FG_COLOR);
         editorPane.setMargin(new Insets(10, 10, 10, 50));
+
+        // Set up tab size
+        setTabSize(editorPane, config.getTabSize());
 
         // Make caret thicker (block cursor style)
         editorPane.setCaret(new BlockCaret());
@@ -65,12 +87,44 @@ public class Main extends JFrame {
         // Add key listener for vim bindings
         editorPane.addKeyListener(new VimKeyListener());
 
-        // Add scroll pane
-        JScrollPane scrollPane = new JScrollPane(editorPane);
-        scrollPane.setBorder(null);
-        scrollPane.getViewport().setBackground(BG_COLOR);
+        // Add focus listener to update indicator
+        editorPane.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                updateFocusIndicator("FILE");
+            }
+        });
 
-        // Create status bar
+        // Create line numbers panel
+        lineNumbers = new JTextArea("  1 ");
+        lineNumbers.setBackground(new Color(20, 20, 20));
+        lineNumbers.setForeground(new Color(100, 100, 100));
+        lineNumbers.setFont(new Font("Consolas", Font.PLAIN, config.getFontSize()));
+        lineNumbers.setEditable(false);
+        lineNumbers.setFocusable(false);
+        lineNumbers.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+        lineNumbers.setVisible(config.isLineNumbers());
+
+        // Update line numbers when document changes
+        editorPane.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { updateLineNumbers(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { updateLineNumbers(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { updateLineNumbers(); }
+        });
+
+        // Add scroll pane with line numbers
+        editorScrollPane = new JScrollPane(editorPane);
+        editorScrollPane.setBorder(null);
+        editorScrollPane.getViewport().setBackground(BG_COLOR);
+        editorScrollPane.setRowHeaderView(lineNumbers);
+
+        // Create terminal panel
+        createTerminalPanel();
+
+        // Create status bar panel
+        statusPanel = new JPanel(new BorderLayout());
+        statusPanel.setBackground(STATUS_BG);
+
         statusBar = new JLabel(" NORMAL ", JLabel.LEFT);
         statusBar.setBackground(STATUS_BG);
         statusBar.setForeground(FG_COLOR);
@@ -78,11 +132,21 @@ public class Main extends JFrame {
         statusBar.setOpaque(true);
         statusBar.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
 
+        focusIndicator = new JLabel("FILE ", JLabel.RIGHT);
+        focusIndicator.setBackground(STATUS_BG);
+        focusIndicator.setForeground(new Color(100, 200, 100));
+        focusIndicator.setFont(new Font("Consolas", Font.BOLD, 14));
+        focusIndicator.setOpaque(true);
+        focusIndicator.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+
+        statusPanel.add(statusBar, BorderLayout.CENTER);
+        statusPanel.add(focusIndicator, BorderLayout.EAST);
+
         // Create NerdTree file explorer
         createNerdTree();
 
         // Create split pane with tree on left, editor on right
-        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScrollPane, scrollPane);
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScrollPane, editorScrollPane);
         splitPane.setDividerLocation(250);
         splitPane.setDividerSize(2);
         splitPane.setBorder(null);
@@ -92,10 +156,21 @@ public class Main extends JFrame {
         treeScrollPane.setVisible(false);
         splitPane.setDividerLocation(0);
 
+        // Create main split pane with editor on top, terminal on bottom
+        mainSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane, terminalPanel);
+        mainSplitPane.setDividerSize(2);
+        mainSplitPane.setBorder(null);
+        mainSplitPane.setBackground(BG_COLOR);
+        mainSplitPane.setResizeWeight(1.0);  // Editor gets all extra space
+
+        // Hide terminal initially
+        terminalPanel.setVisible(false);
+        mainSplitPane.setDividerLocation(getHeight());
+
         // Layout
         setLayout(new BorderLayout());
-        add(splitPane, BorderLayout.CENTER);
-        add(statusBar, BorderLayout.SOUTH);
+        add(mainSplitPane, BorderLayout.CENTER);
+        add(statusPanel, BorderLayout.SOUTH);
 
         // Open file if provided, otherwise show welcome message
         if (filename != null && !filename.isEmpty()) {
@@ -116,17 +191,23 @@ public class Main extends JFrame {
     // Create NerdTree file explorer
     private void createNerdTree() {
         // Get current directory
-        File rootDir = new File(System.getProperty("user.dir"));
-        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(rootDir.getName());
-        buildFileTree(rootDir, rootNode);
+        currentRootDir = new File(System.getProperty("user.dir"));
 
-        fileTree = new JTree(rootNode);
+        fileTree = new JTree(buildTreeModel());
         fileTree.setBackground(BG_COLOR);
         fileTree.setForeground(FG_COLOR);
         fileTree.setFont(new Font("Consolas", Font.PLAIN, 14));
+        fileTree.setRootVisible(true);
 
         // Custom renderer for terminal colors
         fileTree.setCellRenderer(new DefaultTreeCellRenderer() {
+            {
+                // Remove default icons
+                setLeafIcon(null);
+                setOpenIcon(null);
+                setClosedIcon(null);
+            }
+
             @Override
             public Component getTreeCellRendererComponent(JTree tree, Object value,
                     boolean sel, boolean expanded, boolean leaf, int row, boolean hasFocus) {
@@ -140,31 +221,26 @@ public class Main extends JFrame {
                 setTextNonSelectionColor(FG_COLOR);
                 setOpaque(true);
 
-                // Different icons for files vs folders
-                if (leaf) {
-                    setText("  " + value.toString());
+                String nodeText = value.toString();
+                // Special styling for ".." parent directory
+                if (nodeText.equals("..")) {
+                    setText("<- ..");
+                } else if (leaf) {
+                    setText("   " + nodeText);
                 } else {
-                    setText(expanded ? "▼ " + value.toString() : "▶ " + value.toString());
+                    setText(expanded ? "[-] " + nodeText : "[+] " + nodeText);
                 }
 
                 return this;
             }
         });
 
-        // Add double-click listener to open files
+        // Add double-click listener to open files or navigate directories
         fileTree.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
-                    TreePath path = fileTree.getPathForLocation(e.getX(), e.getY());
-                    if (path != null) {
-                        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
-                        File file = getFileFromNode(node, rootDir);
-                        if (file != null && file.isFile()) {
-                            openFile(file.getAbsolutePath());
-                            editorPane.requestFocusInWindow();
-                        }
-                    }
+                    handleTreeSelection();
                 }
             }
         });
@@ -174,15 +250,7 @@ public class Main extends JFrame {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
-                    TreePath path = fileTree.getSelectionPath();
-                    if (path != null) {
-                        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
-                        File file = getFileFromNode(node, rootDir);
-                        if (file != null && file.isFile()) {
-                            openFile(file.getAbsolutePath());
-                            editorPane.requestFocusInWindow();
-                        }
-                    }
+                    handleTreeSelection();
                 }
                 // Tab to switch focus to editor
                 else if (e.getKeyCode() == KeyEvent.VK_TAB) {
@@ -193,6 +261,21 @@ public class Main extends JFrame {
                 else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_N) {
                     e.consume();
                     toggleNerdTree();
+                }
+                // Ctrl+' to toggle terminal
+                else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_QUOTE) {
+                    e.consume();
+                    toggleTerminal();
+                }
+                // Ctrl+1 to focus editor
+                else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_1) {
+                    e.consume();
+                    editorPane.requestFocusInWindow();
+                }
+                // Backspace to go to parent directory
+                else if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
+                    e.consume();
+                    navigateToParent();
                 }
             }
 
@@ -211,26 +294,288 @@ public class Main extends JFrame {
                     fileTree.setSelectionRow(currentRow - 1);
                     fileTree.scrollRowToVisible(currentRow - 1);
                 }
-                // l to expand, h to collapse
+                // l to expand or enter directory, h to collapse or go to parent
                 else if (c == 'l') {
                     e.consume();
                     TreePath path = fileTree.getSelectionPath();
-                    if (path != null && !fileTree.isExpanded(path)) {
-                        fileTree.expandPath(path);
+                    if (path != null) {
+                        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+                        File file = getFileFromNode(node);
+                        if (file != null && file.isDirectory()) {
+                            if (fileTree.isExpanded(path)) {
+                                // Already expanded, enter into the directory
+                                navigateToDirectory(file);
+                            } else {
+                                fileTree.expandPath(path);
+                            }
+                        }
                     }
                 } else if (c == 'h') {
                     e.consume();
                     TreePath path = fileTree.getSelectionPath();
-                    if (path != null && fileTree.isExpanded(path)) {
-                        fileTree.collapsePath(path);
+                    if (path != null) {
+                        if (fileTree.isExpanded(path)) {
+                            fileTree.collapsePath(path);
+                        } else {
+                            // Go to parent directory
+                            navigateToParent();
+                        }
                     }
                 }
+                // '-' key to go to parent directory (like vim's netrw)
+                else if (c == '-') {
+                    e.consume();
+                    navigateToParent();
+                }
+            }
+        });
+
+        // Add focus listener to update indicator
+        fileTree.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                updateFocusIndicator("TREE");
             }
         });
 
         treeScrollPane = new JScrollPane(fileTree);
         treeScrollPane.setBorder(null);
         treeScrollPane.getViewport().setBackground(BG_COLOR);
+    }
+
+    // Create integrated terminal panel
+    private void createTerminalPanel() {
+        terminalPanel = new JPanel(new BorderLayout());
+        terminalPanel.setBackground(BG_COLOR);
+
+        // Terminal output area
+        terminalArea = new JTextArea();
+        terminalArea.setBackground(BG_COLOR);
+        terminalArea.setForeground(FG_COLOR);
+        terminalArea.setFont(new Font("Consolas", Font.PLAIN, 14));
+        terminalArea.setEditable(false);
+        terminalArea.setFocusable(false);
+        terminalArea.setLineWrap(true);
+        terminalArea.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+
+        JScrollPane terminalScroll = new JScrollPane(terminalArea);
+        terminalScroll.setBorder(null);
+        terminalScroll.getViewport().setBackground(BG_COLOR);
+
+        // Terminal input field
+        terminalInput = new JTextField();
+        terminalInput.setBackground(new Color(20, 20, 20));
+        terminalInput.setForeground(FG_COLOR);
+        terminalInput.setCaretColor(FG_COLOR);
+        terminalInput.setFont(new Font("Consolas", Font.PLAIN, 14));
+        terminalInput.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(50, 50, 50)),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+
+        // Handle terminal input
+        terminalInput.addActionListener(e -> executeTerminalCommand());
+
+        // Handle keyboard shortcuts in terminal
+        terminalInput.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_TAB) {
+                    e.consume();
+                    editorPane.requestFocusInWindow();
+                } else if (e.getKeyCode() == KeyEvent.VK_1 && e.isControlDown()) {
+                    e.consume();
+                    editorPane.requestFocusInWindow();
+                } else if (e.getKeyCode() == KeyEvent.VK_QUOTE && e.isControlDown()) {
+                    e.consume();
+                    toggleTerminal();
+                } else if (e.getKeyCode() == KeyEvent.VK_C && e.isControlDown()) {
+                    // Ctrl+C to interrupt process
+                    if (currentProcess != null && currentProcess.isAlive()) {
+                        currentProcess.destroyForcibly();
+                        appendToTerminal("\n^C\n");
+                    }
+                }
+            }
+        });
+
+        // Add focus listener to update indicator
+        terminalInput.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                updateFocusIndicator("TERMINAL");
+            }
+        });
+
+        // Terminal header
+        JLabel terminalHeader = new JLabel(" TERMINAL ");
+        terminalHeader.setBackground(STATUS_BG);
+        terminalHeader.setForeground(FG_COLOR);
+        terminalHeader.setFont(new Font("Consolas", Font.BOLD, 12));
+        terminalHeader.setOpaque(true);
+        terminalHeader.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
+
+        terminalPanel.add(terminalHeader, BorderLayout.NORTH);
+        terminalPanel.add(terminalScroll, BorderLayout.CENTER);
+        terminalPanel.add(terminalInput, BorderLayout.SOUTH);
+
+        // Initialize terminal with welcome message
+        String shell = System.getProperty("os.name").toLowerCase().contains("win") ? "PowerShell" : "Bash";
+        terminalArea.setText(" " + shell + " Terminal - Press Ctrl+' to toggle, Ctrl+1 for editor\n\n");
+    }
+
+    // Execute command in terminal
+    private void executeTerminalCommand() {
+        String command = terminalInput.getText().trim();
+        if (command.isEmpty()) return;
+
+        terminalInput.setText("");
+        appendToTerminal("> " + command + "\n");
+
+        // Run command in background thread
+        new Thread(() -> {
+            try {
+                ProcessBuilder pb;
+                if (System.getProperty("os.name").toLowerCase().contains("win")) {
+                    pb = new ProcessBuilder("powershell", "-Command", command);
+                } else {
+                    pb = new ProcessBuilder("bash", "-c", command);
+                }
+                pb.directory(currentRootDir);
+                pb.redirectErrorStream(true);
+
+                currentProcess = pb.start();
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(currentProcess.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    final String output = line;
+                    SwingUtilities.invokeLater(() -> appendToTerminal(output + "\n"));
+                }
+
+                currentProcess.waitFor();
+                SwingUtilities.invokeLater(() -> appendToTerminal("\n"));
+
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() -> appendToTerminal("Error: " + e.getMessage() + "\n"));
+            }
+        }).start();
+    }
+
+    // Append text to terminal
+    private void appendToTerminal(String text) {
+        terminalArea.append(text);
+        terminalArea.setCaretPosition(terminalArea.getDocument().getLength());
+    }
+
+    // Toggle terminal visibility
+    private void toggleTerminal() {
+        terminalVisible = !terminalVisible;
+        terminalPanel.setVisible(terminalVisible);
+
+        if (terminalVisible) {
+            mainSplitPane.setDividerLocation(getHeight() - 250);
+            terminalInput.requestFocusInWindow();
+        } else {
+            mainSplitPane.setDividerLocation(getHeight());
+            editorPane.requestFocusInWindow();
+        }
+    }
+
+    // Update line numbers
+    private void updateLineNumbers() {
+        String text = editorPane.getText();
+        int lines = text.isEmpty() ? 1 : text.split("\n", -1).length;
+        StringBuilder sb = new StringBuilder();
+        int width = String.valueOf(lines).length();
+        for (int i = 1; i <= lines; i++) {
+            sb.append(String.format("%" + (width + 1) + "d ", i));
+            if (i < lines) sb.append("\n");
+        }
+        lineNumbers.setText(sb.toString());
+    }
+
+    // Set tab size for editor
+    private void setTabSize(JTextPane editor, int tabSize) {
+        FontMetrics fm = editor.getFontMetrics(editor.getFont());
+        int charWidth = fm.charWidth(' ');
+        int tabWidth = charWidth * tabSize;
+
+        TabStop[] tabs = new TabStop[50];
+        for (int i = 0; i < tabs.length; i++) {
+            tabs[i] = new TabStop((i + 1) * tabWidth);
+        }
+        TabSet tabSet = new TabSet(tabs);
+
+        SimpleAttributeSet attrs = new SimpleAttributeSet();
+        StyleConstants.setTabSet(attrs, tabSet);
+
+        StyledDocument doc = editor.getStyledDocument();
+        doc.setParagraphAttributes(0, doc.getLength(), attrs, false);
+    }
+
+    // Build tree model for current root directory
+    private DefaultTreeModel buildTreeModel() {
+        String rootName = currentRootDir.getAbsolutePath();
+        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode(rootName);
+
+        // Add ".." entry to navigate to parent (if parent exists)
+        if (currentRootDir.getParentFile() != null) {
+            DefaultMutableTreeNode parentNode = new DefaultMutableTreeNode("..");
+            rootNode.add(parentNode);
+        }
+
+        buildFileTree(currentRootDir, rootNode);
+        return new DefaultTreeModel(rootNode);
+    }
+
+    // Refresh the tree with new root directory
+    private void refreshTree() {
+        fileTree.setModel(buildTreeModel());
+        fileTree.expandRow(0);  // Expand root
+        fileTree.setSelectionRow(0);
+    }
+
+    // Navigate to parent directory
+    private void navigateToParent() {
+        File parent = currentRootDir.getParentFile();
+        if (parent != null && parent.exists()) {
+            navigateToDirectory(parent);
+        }
+    }
+
+    // Navigate to a specific directory
+    private void navigateToDirectory(File dir) {
+        if (dir != null && dir.isDirectory()) {
+            currentRootDir = dir;
+            refreshTree();
+            statusBar.setText(" " + currentRootDir.getAbsolutePath());
+        }
+    }
+
+    // Handle tree selection (double-click or Enter)
+    private void handleTreeSelection() {
+        TreePath path = fileTree.getSelectionPath();
+        if (path != null) {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+            String nodeName = node.getUserObject().toString();
+
+            // Handle ".." - go to parent directory
+            if (nodeName.equals("..")) {
+                navigateToParent();
+                return;
+            }
+
+            File file = getFileFromNode(node);
+            if (file != null) {
+                if (file.isDirectory()) {
+                    navigateToDirectory(file);
+                } else if (file.isFile()) {
+                    openFile(file.getAbsolutePath());
+                    editorPane.requestFocusInWindow();
+                }
+            }
+        }
     }
 
     // Build the file tree recursively
@@ -260,11 +605,29 @@ public class Main extends JFrame {
     }
 
     // Get the actual File object from a tree node
-    private File getFileFromNode(DefaultMutableTreeNode node, File rootDir) {
-        Object[] path = node.getUserObjectPath();
-        StringBuilder pathBuilder = new StringBuilder(rootDir.getParent());
-        for (Object p : path) {
-            pathBuilder.append(File.separator).append(p.toString());
+    private File getFileFromNode(DefaultMutableTreeNode node) {
+        Object[] pathParts = node.getUserObjectPath();
+        if (pathParts.length == 0) return null;
+
+        // Skip the root node (which contains the full path) and ".." entries
+        String nodeName = node.getUserObject().toString();
+        if (nodeName.equals("..")) {
+            return currentRootDir.getParentFile();
+        }
+
+        // First element is the root path, rest are relative path components
+        if (pathParts.length == 1) {
+            // Root node selected
+            return currentRootDir;
+        }
+
+        // Build path from root directory + relative path parts (skip first which is root path)
+        StringBuilder pathBuilder = new StringBuilder(currentRootDir.getAbsolutePath());
+        for (int i = 1; i < pathParts.length; i++) {
+            String part = pathParts[i].toString();
+            if (!part.equals("..")) {
+                pathBuilder.append(File.separator).append(part);
+            }
         }
         return new File(pathBuilder.toString());
     }
@@ -333,10 +696,27 @@ public class Main extends JFrame {
 
     // Vim key listener
     class VimKeyListener extends KeyAdapter {
+        private boolean consumeNextTyped = false;
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+            // Consume the typed character if we just switched modes
+            if (consumeNextTyped) {
+                e.consume();
+                consumeNextTyped = false;
+            }
+        }
+
         @Override
         public void keyPressed(KeyEvent e) {
             int keyCode = e.getKeyCode();
             char keyChar = e.getKeyChar();
+
+            // Track if we're about to switch to INSERT mode
+            if (currentMode == VimMode.NORMAL &&
+                (keyChar == 'i' || keyChar == 'a' || keyChar == 'A' || keyChar == 'o')) {
+                consumeNextTyped = true;
+            }
 
             switch (currentMode) {
                 case NORMAL:
@@ -359,6 +739,20 @@ public class Main extends JFrame {
             if (e.isControlDown() && keyCode == KeyEvent.VK_N) {
                 e.consume();
                 toggleNerdTree();
+                return;
+            }
+
+            // Ctrl+' to toggle terminal
+            if (e.isControlDown() && keyCode == KeyEvent.VK_QUOTE) {
+                e.consume();
+                toggleTerminal();
+                return;
+            }
+
+            // Ctrl+1 to focus editor (already in editor, but useful from other modes)
+            if (e.isControlDown() && keyCode == KeyEvent.VK_1) {
+                e.consume();
+                editorPane.requestFocusInWindow();
                 return;
             }
 
@@ -448,6 +842,20 @@ public class Main extends JFrame {
             if (e.isControlDown() && keyCode == KeyEvent.VK_N) {
                 e.consume();
                 toggleNerdTree();
+                return;
+            }
+
+            // Ctrl+' to toggle terminal
+            if (e.isControlDown() && keyCode == KeyEvent.VK_QUOTE) {
+                e.consume();
+                toggleTerminal();
+                return;
+            }
+
+            // Ctrl+1 to focus editor
+            if (e.isControlDown() && keyCode == KeyEvent.VK_1) {
+                e.consume();
+                editorPane.requestFocusInWindow();
                 return;
             }
 
@@ -598,6 +1006,10 @@ public class Main extends JFrame {
         statusBar.setText(status);
     }
 
+    private void updateFocusIndicator(String focus) {
+        focusIndicator.setText(focus + " ");
+    }
+
     private void executeCommand(String cmd) {
         cmd = cmd.trim();
 
@@ -653,10 +1065,20 @@ public class Main extends JFrame {
 
     private void showHelp() {
         String help = "=== VIM TERMINAL EDITION - HELP ===\n\n" +
+                      "TERMINAL:\n" +
+                      "  Ctrl+'      - Toggle integrated terminal\n" +
+                      "  Ctrl+1      - Focus editor (from terminal)\n" +
+                      "  Ctrl+C      - Interrupt running command\n\n" +
                       "FILE EXPLORER:\n" +
                       "  Ctrl+N      - Toggle NerdTree file explorer\n" +
                       "  Tab         - Switch focus between tree and editor\n" +
-                      "  (In tree: Arrow keys to navigate, Enter to open)\n\n" +
+                      "  Enter       - Open file or enter directory\n" +
+                      "  ..          - Navigate to parent folder\n" +
+                      "  Backspace   - Go to parent directory\n" +
+                      "  -           - Go to parent directory\n" +
+                      "  h           - Collapse folder or go to parent\n" +
+                      "  l           - Expand folder or enter directory\n" +
+                      "  j/k         - Navigate up/down in tree\n\n" +
                       "NORMAL MODE (default):\n" +
                       "  h, j, k, l  - Move cursor (left, down, up, right)\n" +
                       "  i           - Enter INSERT mode\n" +
@@ -667,10 +1089,12 @@ public class Main extends JFrame {
                       "  x           - Delete character\n" +
                       "  :           - Enter COMMAND mode\n" +
                       "  Ctrl+N      - Toggle NerdTree\n" +
+                      "  Ctrl+'      - Toggle terminal\n" +
                       "  Tab         - Focus file tree (if open)\n\n" +
                       "INSERT MODE:\n" +
                       "  ESC         - Return to NORMAL mode\n" +
                       "  Ctrl+N      - Toggle NerdTree\n" +
+                      "  Ctrl+'      - Toggle terminal\n" +
                       "  (Type freely)\n\n" +
                       "VISUAL MODE:\n" +
                       "  h, j, k, l  - Extend selection\n" +
@@ -684,10 +1108,7 @@ public class Main extends JFrame {
                       "  :wq or :x   - Save and quit\n" +
                       "  :help       - Show this help\n" +
                       "  ESC         - Return to NORMAL mode\n\n" +
-                      "USAGE:\n" +
-                      "  Run with: java -jar app.jar [filename.java]\n" +
-                      "  Example: java -jar app.jar MyClass.java\n\n" +
-                      "Press 'i' to start editing, Ctrl+N for file explorer...\n";
+                      "Press 'i' to edit, Ctrl+N for explorer, Ctrl+' for terminal...\n";
 
         editorPane.setText(help);
         editorPane.setCaretPosition(0);
