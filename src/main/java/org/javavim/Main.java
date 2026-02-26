@@ -1,4 +1,4 @@
-package org.example;
+package org.javavim;
 
 import javax.swing.*;
 import javax.swing.text.*;
@@ -55,18 +55,14 @@ public class Main extends JFrame {
     private JScrollPane editorScrollPane;
 
     public Main(String filename) {
-        // Set up the frame - fullscreen terminal style
+        // Set up the frame - windowed terminal style
         setTitle("VIM");
-        setUndecorated(true);
+        setUndecorated(false);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-        // Make it fullscreen
-        GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-        if (gd.isFullScreenSupported()) {
-            gd.setFullScreenWindow(this);
-        } else {
-            setExtendedState(JFrame.MAXIMIZED_BOTH);
-        }
+        // Open in a regular window instead of fullscreen
+        setSize(1280, 800);
+        setLocationRelativeTo(null);
 
         // Create editor pane
         editorPane = new JTextPane();
@@ -484,15 +480,7 @@ public class Main extends JFrame {
 
     // Update line numbers
     private void updateLineNumbers() {
-        String text = editorPane.getText();
-        int lines = text.isEmpty() ? 1 : text.split("\n", -1).length;
-        StringBuilder sb = new StringBuilder();
-        int width = String.valueOf(lines).length();
-        for (int i = 1; i <= lines; i++) {
-            sb.append(String.format("%" + (width + 1) + "d ", i));
-            if (i < lines) sb.append("\n");
-        }
-        lineNumbers.setText(sb.toString());
+        lineNumbers.setText(LineNumberFormatter.format(editorPane.getText()));
     }
 
     // Set tab size for editor
@@ -1011,30 +999,31 @@ public class Main extends JFrame {
     }
 
     private void executeCommand(String cmd) {
-        cmd = cmd.trim();
-
-        if (cmd.equals("q")) {
-            System.exit(0);
-        } else if (cmd.equals("w")) {
-            saveFile();
-        } else if (cmd.equals("wq") || cmd.equals("x")) {
-            saveFile();
-            System.exit(0);
-        } else if (cmd.startsWith("w ")) {
-            String filename = cmd.substring(2).trim();
-            // Remove BOM and other invisible Unicode characters
-            filename = filename.replaceAll("[\uFEFF\u200B-\u200D\uFFFE\uFFFF]", "");
-            currentFilePath = filename;
-            saveFile();
-        } else if (cmd.startsWith("e ")) {
-            String filename = cmd.substring(2).trim();
-            // Remove BOM and other invisible Unicode characters
-            filename = filename.replaceAll("[\uFEFF\u200B-\u200D\uFFFE\uFFFF]", "");
-            openFile(filename);
-        } else if (cmd.equals("help")) {
-            showHelp();
-        } else {
-            statusBar.setText(" Unknown command: " + cmd);
+        EditorCommandParser.ParsedCommand command = EditorCommandParser.parse(cmd);
+        switch (command.type()) {
+            case QUIT:
+                System.exit(0);
+                break;
+            case SAVE:
+                saveFile();
+                break;
+            case SAVE_AND_QUIT:
+                saveFile();
+                System.exit(0);
+                break;
+            case SAVE_AS:
+                currentFilePath = command.argument();
+                saveFile();
+                break;
+            case OPEN:
+                openFile(command.argument());
+                break;
+            case HELP:
+                showHelp();
+                break;
+            case UNKNOWN:
+                statusBar.setText(" Unknown command: " + command.argument());
+                break;
         }
     }
 
@@ -1115,13 +1104,7 @@ public class Main extends JFrame {
     }
 
     public static void main(String[] args) {
-        // Get filename from command-line arguments
-        String filename = null;
-        if (args.length > 0) {
-            filename = args[0];
-        }
-
-        final String fileToOpen = filename;
+        final String fileToOpen = StartupArgsParser.extractFilename(args);
 
         SwingUtilities.invokeLater(() -> {
             Main frame = new Main(fileToOpen);

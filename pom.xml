@@ -53,7 +53,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>org.example.Main</mainClass>
+                            <mainClass>org.javavim.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
@@ -74,7 +74,7 @@
                 </executions>
                 <configuration>
                     <imageName>SwingApp</imageName>
-                    <mainClass>org.example.Main</mainClass>
+                    <mainClass>org.javavim.Main</mainClass>
                     <buildArgs>
                         <buildArg>--no-fallback</buildArg>
                         <buildArg>-H:+ReportExceptionStackTraces</buildArg>

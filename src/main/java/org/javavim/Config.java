@@ -1,4 +1,4 @@
-package org.example;
+package org.javavim;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -69,23 +69,25 @@ public class Config {
      * Uses simple regex parsing to avoid external dependencies.
      */
     private void parseJson(String content) {
-        // Parse tabSize
-        Matcher m = Pattern.compile("\"tabSize\"\\s*:\\s*(\\d+)").matcher(content);
-        if (m.find()) {
-            tabSize = Integer.parseInt(m.group(1));
-        }
+        tabSize = parseIntValue(content, "tabSize", tabSize);
+        fontSize = parseIntValue(content, "fontSize", fontSize);
+        lineNumbers = parseBooleanValue(content, "lineNumbers", lineNumbers);
+    }
 
-        // Parse fontSize
-        m = Pattern.compile("\"fontSize\"\\s*:\\s*(\\d+)").matcher(content);
+    private int parseIntValue(String content, String key, int fallback) {
+        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(\\d+)").matcher(content);
         if (m.find()) {
-            fontSize = Integer.parseInt(m.group(1));
+            return Integer.parseInt(m.group(1));
         }
+        return fallback;
+    }
 
-        // Parse lineNumbers
-        m = Pattern.compile("\"lineNumbers\"\\s*:\\s*(true|false)").matcher(content);
+    private boolean parseBooleanValue(String content, String key, boolean fallback) {
+        Matcher m = Pattern.compile("\"" + key + "\"\\s*:\\s*(true|false)").matcher(content);
         if (m.find()) {
-            lineNumbers = Boolean.parseBoolean(m.group(1));
+            return Boolean.parseBoolean(m.group(1));
         }
+        return fallback;
     }
 
     /**

@@ -42,7 +42,7 @@ java -jar target/javafxterminaltoexe-1.0-SNAPSHOT.jar MyFile.java
 
 ### Create Native Executable (Optional)
 ```bash
-jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.example.Main --type app-image --win-console
+jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.javavim.Main --type app-image --win-console
 ```
 
 Run with: `./SwingApp/SwingApp.exe`

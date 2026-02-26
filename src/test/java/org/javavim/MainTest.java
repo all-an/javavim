@@ -1,19 +1,15 @@
-package org.example;
+package org.javavim;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.*;
 
 import javax.swing.*;
-import javax.swing.text.*;
 import java.awt.*;
 import java.io.*;
 import java.lang.reflect.*;
 import java.nio.file.*;
-import java.util.regex.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for Main class using reflection and Mockito.
@@ -30,7 +26,7 @@ class MainTest {
     }
 
     private static Class<?> getVimModeClass() throws Exception {
-        return Class.forName("org.example.Main$VimMode");
+        return Class.forName("org.javavim.Main$VimMode");
     }
 
     private static Object getVimModeValue(String name) throws Exception {
@@ -346,14 +342,14 @@ class MainTest {
     @Test
     @DisplayName("VimKeyListener inner class exists")
     void testVimKeyListenerExists() throws Exception {
-        Class<?> innerClass = Class.forName("org.example.Main$VimKeyListener");
+        Class<?> innerClass = Class.forName("org.javavim.Main$VimKeyListener");
         assertNotNull(innerClass);
     }
 
     @Test
     @DisplayName("BlockCaret inner class exists")
     void testBlockCaretExists() throws Exception {
-        Class<?> innerClass = Class.forName("org.example.Main$BlockCaret");
+        Class<?> innerClass = Class.forName("org.javavim.Main$BlockCaret");
         assertNotNull(innerClass);
     }
 

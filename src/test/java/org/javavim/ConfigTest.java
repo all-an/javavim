@@ -1,4 +1,4 @@
-package org.example;
+package org.javavim;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
@@ -94,6 +94,58 @@ class ConfigTest {
         assertEquals(4, config.getTabSize());
         assertEquals(16, config.getFontSize());
         assertTrue(config.isLineNumbers());
+    }
+
+    @Test
+    @DisplayName("Ignore string-typed values and keep defaults")
+    void testIgnoreStringTypedValues() {
+        String json = """
+            {
+                "tabSize": "8",
+                "fontSize": "20",
+                "lineNumbers": "false"
+            }
+            """;
+
+        Config config = new Config().loadFromString(json);
+
+        assertEquals(4, config.getTabSize());
+        assertEquals(16, config.getFontSize());
+        assertTrue(config.isLineNumbers());
+    }
+
+    @Test
+    @DisplayName("Numeric parser keeps current regex behavior on decimal-like input")
+    void testRegexNumericParsingBehavior() {
+        String json = """
+            {
+                "tabSize": -2,
+                "fontSize": 12.5
+            }
+            """;
+
+        Config config = new Config().loadFromString(json);
+
+        assertEquals(4, config.getTabSize());
+        assertEquals(12, config.getFontSize());
+    }
+
+    @Test
+    @DisplayName("Apply valid values and ignore invalid ones in same payload")
+    void testMixedValidAndInvalidValues() {
+        String json = """
+            {
+                "tabSize": 2,
+                "fontSize": "bad",
+                "lineNumbers": false
+            }
+            """;
+
+        Config config = new Config().loadFromString(json);
+
+        assertEquals(2, config.getTabSize());
+        assertEquals(16, config.getFontSize());
+        assertFalse(config.isLineNumbers());
     }
 
     @Test
