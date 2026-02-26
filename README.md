@@ -7,6 +7,7 @@ A vim-like text editor with terminal aesthetic (black background, green text) bu
 - 4 VIM Modes: NORMAL, INSERT, VISUAL, COMMAND
 - NerdTree-style File Explorer with full filesystem navigation
 - Integrated Terminal (PowerShell/Bash)
+- `Ctrl+E` to compile all Java files in current file folder and run current file class
 - Line numbers
 - Terminal styling with block cursor
 
@@ -55,7 +56,14 @@ Run with: `./SwingApp/SwingApp.exe`
 | `Ctrl+'` | Toggle terminal |
 | `Ctrl+1` | Focus editor |
 | `Ctrl+C` | Interrupt command |
+| `Ctrl+E` | Compile+run current Java file folder |
 | `Enter` | Execute command |
+
+### Ctrl+E Java Run
+- Open/select a `.java` file, then press `Ctrl+E`.
+- Javavim compiles all `.java` files in the same folder (recursive) with `javac`.
+- It runs the currently opened Java class with `java`.
+- Output appears in the integrated terminal and is saved to `ctrl-e-run.log` in that folder.
 
 ### File Explorer (Ctrl+N to toggle)
 | Key | Action |
@@ -81,6 +89,7 @@ Run with: `./SwingApp/SwingApp.exe`
 | `x` | Delete character |
 | `:` | Command mode |
 | `Ctrl+N` | Toggle file explorer |
+| `Ctrl+E` | Compile+run current Java file folder |
 | `Ctrl+'` | Toggle terminal |
 | `Tab` | Focus file tree |
 
@@ -89,6 +98,7 @@ Run with: `./SwingApp/SwingApp.exe`
 |-----|--------|
 | `ESC` | Return to Normal mode |
 | `Ctrl+N` | Toggle file explorer |
+| `Ctrl+E` | Compile+run current Java file folder |
 | `Ctrl+'` | Toggle terminal |
 
 ### Visual Mode
@@ -96,6 +106,7 @@ Run with: `./SwingApp/SwingApp.exe`
 |-----|--------|
 | `h` `j` `k` `l` | Extend selection |
 | `d` | Delete selection |
+| `Ctrl+E` | Compile+run current Java file folder |
 | `ESC` | Return to Normal mode |
 
 ### Command Mode
@@ -112,7 +123,7 @@ Run with: `./SwingApp/SwingApp.exe`
 
 ```
 javavim/
-├── src/main/java/org/example/Main.java
+├── src/main/java/org/javavim/Main.java
 ├── target/javavim-1.0-SNAPSHOT.jar
 ├── pom.xml
 └── README.md

@@ -7,6 +7,8 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
 import java.nio.file.*;
+import java.time.LocalDateTime;
+import java.util.List;
 
 public class Main extends JFrame {
 
@@ -20,6 +22,7 @@ public class Main extends JFrame {
     private static final Color FG_COLOR = new Color(0, 255, 0);         // Green
     private static final Color STATUS_BG = new Color(0, 50, 0);         // Dark green
     private static final Color VISUAL_SELECT = new Color(0, 100, 0);    // Selection color
+    private static final String CTRL_E_LOG_FILE = "ctrl-e-run.log";
 
     // Configuration
     private static final Config config = new Config().load();
@@ -173,7 +176,7 @@ public class Main extends JFrame {
             openFile(filename);
         } else {
             // Initial text
-            editorPane.setText("~ VIM - Terminal Edition ~\n~ Press 'i' to enter INSERT mode ~\n~ Press ':' to enter COMMAND mode ~\n~ Press 'v' to enter VISUAL mode ~\n~ Press Ctrl+N to toggle NerdTree ~\n~ Press Tab to switch focus (tree/editor) ~\n~ Type ':help' for help ~\n");
+            editorPane.setText("~ VIM - Terminal Edition ~\n~ Press 'i' to enter INSERT mode ~\n~ Press ':' to enter COMMAND mode ~\n~ Press 'v' to enter VISUAL mode ~\n~ Press Ctrl+N to toggle NerdTree ~\n~ Press Ctrl+E to compile+run current Java folder ~\n~ Ctrl+E saves output to ctrl-e-run.log ~\n~ Press Tab to switch focus (tree/editor) ~\n~ Type ':help' for help ~\n");
             editorPane.setCaretPosition(0);
         }
 
@@ -458,6 +461,146 @@ public class Main extends JFrame {
         }).start();
     }
 
+    // Ctrl+E action: compile all Java files in current file folder and run current class
+    private void runJavaFolderFromCurrentFile() {
+        String selectedTreeFilePath = getSelectedTreeFilePath();
+        String filePathToRun = CtrlEFileSelector.selectJavaFilePath(currentFilePath, selectedTreeFilePath);
+
+        JavaRunPlanBuildResult buildResult = JavaRunPlanBuilder.build(filePathToRun);
+        if (!buildResult.isSuccess()) {
+            statusBar.setText(buildResult.errorMessage());
+            return;
+        }
+
+        currentFilePath = filePathToRun;
+        saveCurrentFileIfSelected();
+        showTerminalForExecution();
+        appendToTerminal(" Ctrl+E Java run\n");
+        runJavaPlanAsync(buildResult.plan());
+    }
+
+    private String getSelectedTreeFilePath() {
+        if (fileTree == null) {
+            return null;
+        }
+
+        TreePath path = fileTree.getSelectionPath();
+        if (path == null) {
+            return null;
+        }
+
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) path.getLastPathComponent();
+        File file = getFileFromNode(node);
+        return (file != null && file.isFile()) ? file.getAbsolutePath() : null;
+    }
+
+    private void saveCurrentFileIfSelected() {
+        if (currentFilePath != null && !currentFilePath.isBlank()) {
+            saveFile();
+        }
+    }
+
+    private void showTerminalForExecution() {
+        if (!terminalVisible) {
+            toggleTerminal();
+        }
+        terminalInput.requestFocusInWindow();
+    }
+
+    private void runJavaPlanAsync(JavaRunPlan plan) {
+        Thread thread = new Thread(() -> executeJavaPlan(plan), "javavim-ctrl-e-runner");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void executeJavaPlan(JavaRunPlan plan) {
+        Path logFile = resolveCtrlELogPath(plan);
+        try (BufferedWriter logWriter = openCtrlELogWriter(logFile)) {
+            Files.createDirectories(plan.outputDirectory());
+            appendToTerminalOnEdt(" Log file: " + logFile + "\n");
+            writeCtrlELogHeader(logWriter, plan, logFile);
+
+            appendCommandPreview(plan.buildCompileCommand(), logWriter);
+            int compileExit = executeSystemCommand(plan.buildCompileCommand(), plan.workingDirectory(), logWriter);
+            writeCtrlELogLine(logWriter, "compile-exit=" + compileExit);
+            if (compileExit != 0) {
+                updateStatusText(" Compilation failed (exit " + compileExit + ")");
+                return;
+            }
+
+            appendCommandPreview(plan.buildRunCommand(), logWriter);
+            int runExit = executeSystemCommand(plan.buildRunCommand(), plan.workingDirectory(), logWriter);
+            writeCtrlELogLine(logWriter, "run-exit=" + runExit);
+            updateStatusText(runExit == 0
+                    ? " Ctrl+E run finished successfully"
+                    : " Run failed (exit " + runExit + ")");
+        } catch (Exception e) {
+            appendToTerminalOnEdt("Error: " + e.getMessage() + "\n");
+            updateStatusText(" Ctrl+E error: " + e.getMessage());
+        }
+    }
+
+    private Path resolveCtrlELogPath(JavaRunPlan plan) {
+        return plan.workingDirectory().resolve(CTRL_E_LOG_FILE);
+    }
+
+    private BufferedWriter openCtrlELogWriter(Path logFile) throws IOException {
+        return Files.newBufferedWriter(logFile, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    }
+
+    private void writeCtrlELogHeader(BufferedWriter logWriter, JavaRunPlan plan, Path logFile) throws IOException {
+        writeCtrlELogLine(logWriter, "-----");
+        writeCtrlELogLine(logWriter, "timestamp=" + LocalDateTime.now());
+        writeCtrlELogLine(logWriter, "file=" + currentFilePath);
+        writeCtrlELogLine(logWriter, "main-class=" + plan.mainClassName());
+        writeCtrlELogLine(logWriter, "working-dir=" + plan.workingDirectory());
+        writeCtrlELogLine(logWriter, "log-file=" + logFile);
+    }
+
+    private void appendCommandPreview(List<String> command, BufferedWriter logWriter) throws IOException {
+        String commandLine = String.join(" ", command);
+        appendToTerminalOnEdt("> " + commandLine + "\n");
+        writeCtrlELogLine(logWriter, "> " + commandLine);
+    }
+
+    private int executeSystemCommand(List<String> command, Path workingDirectory, BufferedWriter logWriter)
+            throws IOException, InterruptedException {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.directory(workingDirectory.toFile());
+        pb.redirectErrorStream(true);
+
+        currentProcess = pb.start();
+        streamProcessOutput(currentProcess, logWriter);
+        int exitCode = currentProcess.waitFor();
+        currentProcess = null;
+        appendToTerminalOnEdt("\n");
+        return exitCode;
+    }
+
+    private void streamProcessOutput(Process process, BufferedWriter logWriter) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                appendToTerminalOnEdt(line + "\n");
+                writeCtrlELogLine(logWriter, line);
+            }
+        }
+    }
+
+    private void writeCtrlELogLine(BufferedWriter logWriter, String line) throws IOException {
+        logWriter.write(line);
+        logWriter.newLine();
+        logWriter.flush();
+    }
+
+    private void appendToTerminalOnEdt(String text) {
+        SwingUtilities.invokeLater(() -> appendToTerminal(text));
+    }
+
+    private void updateStatusText(String text) {
+        SwingUtilities.invokeLater(() -> statusBar.setText(text));
+    }
+
     // Append text to terminal
     private void appendToTerminal(String text) {
         terminalArea.append(text);
@@ -634,6 +777,36 @@ public class Main extends JFrame {
         editorPane.requestFocusInWindow();
     }
 
+    private boolean handleSharedEditorShortcut(KeyEvent e, int keyCode) {
+        boolean ctrlDown = e.isControlDown();
+
+        if (EditorShortcut.TOGGLE_NERDTREE.matches(ctrlDown, keyCode)) {
+            e.consume();
+            toggleNerdTree();
+            return true;
+        }
+
+        if (EditorShortcut.TOGGLE_TERMINAL.matches(ctrlDown, keyCode)) {
+            e.consume();
+            toggleTerminal();
+            return true;
+        }
+
+        if (EditorShortcut.FOCUS_EDITOR.matches(ctrlDown, keyCode)) {
+            e.consume();
+            editorPane.requestFocusInWindow();
+            return true;
+        }
+
+        if (EditorShortcut.RUN_JAVA_FOLDER.matches(ctrlDown, keyCode)) {
+            e.consume();
+            runJavaFolderFromCurrentFile();
+            return true;
+        }
+
+        return false;
+    }
+
     // Block cursor for terminal feel
     class BlockCaret extends DefaultCaret {
         public BlockCaret() {
@@ -723,26 +896,7 @@ public class Main extends JFrame {
         }
 
         private void handleNormalMode(KeyEvent e, int keyCode, char keyChar) {
-            // Check for Ctrl+N to toggle NerdTree
-            if (e.isControlDown() && keyCode == KeyEvent.VK_N) {
-                e.consume();
-                toggleNerdTree();
-                return;
-            }
-
-            // Ctrl+' to toggle terminal
-            if (e.isControlDown() && keyCode == KeyEvent.VK_QUOTE) {
-                e.consume();
-                toggleTerminal();
-                return;
-            }
-
-            // Ctrl+1 to focus editor (already in editor, but useful from other modes)
-            if (e.isControlDown() && keyCode == KeyEvent.VK_1) {
-                e.consume();
-                editorPane.requestFocusInWindow();
-                return;
-            }
+            if (handleSharedEditorShortcut(e, keyCode)) return;
 
             // Tab to switch focus to tree if visible
             if (keyCode == KeyEvent.VK_TAB && nerdTreeVisible) {
@@ -826,26 +980,7 @@ public class Main extends JFrame {
         }
 
         private void handleInsertMode(KeyEvent e, int keyCode, char keyChar) {
-            // Check for Ctrl+N to toggle NerdTree
-            if (e.isControlDown() && keyCode == KeyEvent.VK_N) {
-                e.consume();
-                toggleNerdTree();
-                return;
-            }
-
-            // Ctrl+' to toggle terminal
-            if (e.isControlDown() && keyCode == KeyEvent.VK_QUOTE) {
-                e.consume();
-                toggleTerminal();
-                return;
-            }
-
-            // Ctrl+1 to focus editor
-            if (e.isControlDown() && keyCode == KeyEvent.VK_1) {
-                e.consume();
-                editorPane.requestFocusInWindow();
-                return;
-            }
+            if (handleSharedEditorShortcut(e, keyCode)) return;
 
             if (keyCode == KeyEvent.VK_ESCAPE) {
                 e.consume();
@@ -855,6 +990,7 @@ public class Main extends JFrame {
         }
 
         private void handleVisualMode(KeyEvent e, int keyCode, char keyChar) {
+            if (handleSharedEditorShortcut(e, keyCode)) return;
             e.consume();
 
             int pos = editorPane.getCaretPosition();
@@ -911,6 +1047,7 @@ public class Main extends JFrame {
         }
 
         private void handleCommandMode(KeyEvent e, int keyCode, char keyChar) {
+            if (handleSharedEditorShortcut(e, keyCode)) return;
             e.consume();
 
             if (keyCode == KeyEvent.VK_ESCAPE) {
@@ -1057,7 +1194,9 @@ public class Main extends JFrame {
                       "TERMINAL:\n" +
                       "  Ctrl+'      - Toggle integrated terminal\n" +
                       "  Ctrl+1      - Focus editor (from terminal)\n" +
-                      "  Ctrl+C      - Interrupt running command\n\n" +
+                      "  Ctrl+C      - Interrupt running command\n" +
+                      "  Ctrl+E      - Compile+run current Java file folder\n" +
+                      "               (logs to ctrl-e-run.log in that folder)\n\n" +
                       "FILE EXPLORER:\n" +
                       "  Ctrl+N      - Toggle NerdTree file explorer\n" +
                       "  Tab         - Switch focus between tree and editor\n" +
@@ -1078,16 +1217,19 @@ public class Main extends JFrame {
                       "  x           - Delete character\n" +
                       "  :           - Enter COMMAND mode\n" +
                       "  Ctrl+N      - Toggle NerdTree\n" +
+                      "  Ctrl+E      - Compile+run current Java file folder\n" +
                       "  Ctrl+'      - Toggle terminal\n" +
                       "  Tab         - Focus file tree (if open)\n\n" +
                       "INSERT MODE:\n" +
                       "  ESC         - Return to NORMAL mode\n" +
                       "  Ctrl+N      - Toggle NerdTree\n" +
+                      "  Ctrl+E      - Compile+run current Java file folder\n" +
                       "  Ctrl+'      - Toggle terminal\n" +
                       "  (Type freely)\n\n" +
                       "VISUAL MODE:\n" +
                       "  h, j, k, l  - Extend selection\n" +
                       "  d           - Delete selection\n" +
+                      "  Ctrl+E      - Compile+run current Java file folder\n" +
                       "  ESC         - Return to NORMAL mode\n\n" +
                       "COMMAND MODE:\n" +
                       "  :w          - Save file\n" +
@@ -1096,8 +1238,10 @@ public class Main extends JFrame {
                       "  :q          - Quit application\n" +
                       "  :wq or :x   - Save and quit\n" +
                       "  :help       - Show this help\n" +
+                      "  Ctrl+E      - Compile+run current Java file folder\n" +
                       "  ESC         - Return to NORMAL mode\n\n" +
-                      "Press 'i' to edit, Ctrl+N for explorer, Ctrl+' for terminal...\n";
+                      "Press 'i' to edit, Ctrl+N for explorer, Ctrl+E to run Java folder...\n" +
+                      "Ctrl+E also logs output to ctrl-e-run.log.\n";
 
         editorPane.setText(help);
         editorPane.setCaretPosition(0);
