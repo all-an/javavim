@@ -173,7 +173,7 @@ public class Main extends JFrame {
             openFile(filename);
         } else {
             // Initial text
-            editorPane.setText("~ VIM - Terminal Edition ~\n~ Press 'i' to enter INSERT mode ~\n~ Press ':' to enter COMMAND mode ~\n~ Press 'v' to enter VISUAL mode ~\n~ Type ':help' for help ~\n");
+            editorPane.setText("~ VIM - Terminal Edition ~\n~ Press 'i' to enter INSERT mode ~\n~ Press ':' to enter COMMAND mode ~\n~ Press 'v' to enter VISUAL mode ~\n~ Press Ctrl+N to toggle NerdTree ~\n~ Press Tab to switch focus (tree/editor) ~\n~ Type ':help' for help ~\n");
             editorPane.setCaretPosition(0);
         }
 
