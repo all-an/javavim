@@ -34,15 +34,15 @@ mvn test -Dtest=MainTest
 ### Run
 ```bash
 # Without file
-java -jar target/javafxterminaltoexe-1.0-SNAPSHOT.jar
+java -jar target/javavim-1.0-SNAPSHOT.jar
 
 # With file
-java -jar target/javafxterminaltoexe-1.0-SNAPSHOT.jar MyFile.java
+java -jar target/javavim-1.0-SNAPSHOT.jar MyFile.java
 ```
 
 ### Create Native Executable (Optional)
 ```bash
-jpackage --input target --name SwingApp --main-jar javafxterminaltoexe-1.0-SNAPSHOT.jar --main-class org.javavim.Main --type app-image --win-console
+jpackage --input target --name SwingApp --main-jar javavim-1.0-SNAPSHOT.jar --main-class org.javavim.Main --type app-image --win-console
 ```
 
 Run with: `./SwingApp/SwingApp.exe`
@@ -113,7 +113,7 @@ Run with: `./SwingApp/SwingApp.exe`
 ```
 javavim/
 ├── src/main/java/org/example/Main.java
-├── target/javafxterminaltoexe-1.0-SNAPSHOT.jar
+├── target/javavim-1.0-SNAPSHOT.jar
 ├── pom.xml
 └── README.md
 ```
