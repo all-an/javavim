@@ -1,4 +1,4 @@
-# VIM Terminal Edition
+# vim like editor built with Java Swing
 
 A vim-like text editor with terminal aesthetic (black background, green text) built with Java Swing.
 
